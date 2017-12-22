@@ -26,6 +26,10 @@ print("Worker nodes are {}".format(worker_list))
 
 
 CHECKPOINT_DIRECTORY = "checkpoints"
+<<<<<<< HEAD
+=======
+NUM_STEPS = 200
+>>>>>>> 76d05b458535729ee89209817910a08244c07746
 
 ####################################################################
 
@@ -167,7 +171,11 @@ def main(_):
 						   imgs_train.shape[3],  # Input Channels
 						   msks_train.shape[3]) # Output Channels
 
+<<<<<<< HEAD
 	  targ = tf.placeholder(tf.float32, shape=((batch_size//len(worker_hosts)),msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))
+=======
+	  targ = tf.placeholder(tf.float32, shape=((batch_size//len(worker_hosts)),msks_train[0].shape[0],msks_train[0].shape[1],msks_train[0].shape[2]))
+>>>>>>> 76d05b458535729ee89209817910a08244c07746
 	  preds = model.output
 
 	  loss_value = dice_coef_loss(targ, preds)
@@ -264,12 +272,19 @@ def main(_):
 		print("Loading epoch")
 		epoch = get_epoch(batch_size,imgs_train,msks_train)
 		num_batches = len(epoch)
+<<<<<<< HEAD
 		print("Loaded")
 
 		while (step < num_batches*FLAGS.epochs):
 
 			if sv.should_stop():
 					break   # Exit early since the Supervisor node has requested a stop.
+=======
+		print('Loaded')
+		current_batch = 1
+
+		while (not sv.should_stop()) and (step < num_batches*FLAGS.epochs):
+>>>>>>> 76d05b458535729ee89209817910a08244c07746
 
 			progressbar = trange(len(epoch))
 
