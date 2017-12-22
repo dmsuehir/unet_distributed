@@ -21,10 +21,6 @@ def load_all_data():
 	print("Training images shape: {}".format(imgs_train[0].shape))
 	print("Training masks shape: {}".format(msks_train[0].shape))
 
-	print('-'*30)
-	print('Creating and compiling model...')
-	print('-'*30)
-
 	return imgs_train, msks_train, imgs_test, msks_test
 
 

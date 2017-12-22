@@ -11,10 +11,12 @@ Usage:  python test_dist.py --ip=10.100.68.245 --is_sync=0
 		The IP address must match one of the ones in the list below. If not passed,
 		then we"ll default to the current machine"s IP (which is usually correct unless you use OPA)
 """
-ps_hosts = ["10.100.68.245"]
-ps_ports = ["2222"]
-worker_hosts = ["10.100.68.193","10.100.68.183"] #,"10.100.68.185","10.100.68.187"]
-worker_ports = ["2222", "2222"] #, "2222", "2222"]
+import settings_dist
+
+ps_hosts = settings_dist.PS_HOSTS
+ps_ports = settings_dist.PS_PORTS
+worker_hosts = settings_dist.WORKER_HOSTS
+worker_ports = settings_dist.WORKER_PORTS
 
 ps_list = ["{}:{}".format(x,y) for x,y in zip(ps_hosts, ps_ports)]
 worker_list = ["{}:{}".format(x,y) for x,y in zip(worker_hosts, worker_ports)]
@@ -22,13 +24,8 @@ print ("Distributed TensorFlow training")
 print("Parameter server nodes are: {}".format(ps_list))
 print("Worker nodes are {}".format(worker_list))
 
-# Tensorflow is trying to fit a line with random noise added.
-# So this is a standard regression with Distributed TF
-slope = 5
-intercept = 13
 
 CHECKPOINT_DIRECTORY = "checkpoints"
-NUM_STEPS = 1000
 
 ####################################################################
 
@@ -37,14 +34,16 @@ import tensorflow as tf
 import os
 import socket
 import timeit
+from tqdm import tqdm
+from tqdm import trange
+tqdm.monitor_interval = 0
 
-import settings_dist
 from model import define_model, dice_coef_loss, dice_coef
 from data import load_all_data, get_epoch
 import multiprocessing
 
 num_inter_op_threads = 2  
-num_intra_op_threads = multiprocessing.cpu_count() // 2 # Use half the CPU cores
+num_intra_op_threads = settings_dist.NUM_INTRA_THREADS #multiprocessing.cpu_count() // 2 # Use half the CPU cores
 
 # Unset proxy env variable to avoid gRPC errors
 del os.environ["http_proxy"]
@@ -54,20 +53,22 @@ del os.environ["https_proxy"]
 #os.environ["GRPC_VERBOSITY"]="DEBUG"
 #os.environ["GRPC_TRACE"] = "all"
 
+os.environ["KMP_BLOCKTIME"] = "0"
+os.environ["KMP_AFFINITY"]="granularity=thread,compact,1,0"
+os.environ["OMP_NUM_THREADS"]= str(num_intra_op_threads)
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="2"  # Get rid of the AVX, SSE warnings
 
 # Define parameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_float("learning_rate", settings_dist.LEARNINGRATE, "Initial learning rate.")
-tf.app.flags.DEFINE_integer("steps_to_validate", 10,
-					 "Validate and print loss after this many steps")
 tf.app.flags.DEFINE_integer("is_sync", 0, "Synchronous updates?")
 tf.app.flags.DEFINE_string("ip", socket.gethostbyname(socket.gethostname()), "IP address of this machine")
 tf.app.flags.DEFINE_integer("batch_size", settings_dist.BATCH_SIZE,
 					 "Batch size of input data")
+tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
+					 "Batch size of input data")
 # Hyperparameters
 learning_rate = FLAGS.learning_rate
-steps_to_validate = FLAGS.steps_to_validate
 batch_size = FLAGS.batch_size
 
 
@@ -112,24 +113,33 @@ def main(_):
   is_chief = (task_index == 0)  # Am I the chief node (always task 0)
 
 
+  greedy = tf.contrib.training.GreedyLoadBalancingStrategy(num_tasks=len(ps_hosts), 
+  								load_fn=tf.contrib.training.byte_size_load_fn)
+  	
   if job_name == "ps":
 
-	sess = tf.Session(server.target, config=config)
-	queue = create_done_queue(task_index)
+  	with tf.device(tf.train.replica_device_setter(
+					worker_device="/job:ps/task:{}".format(task_index),
+					ps_tasks=len(ps_hosts),
+					ps_strategy = greedy,
+					cluster=cluster)):
 
-	print("\n")
-	print("*"*30)
-	print("\nParameter server #{} on this machine.\n\n" \
-		"Waiting on workers to finish.\n\nPress CTRL-\\ to terminate early." .format(task_index))
-	print("*"*30)
+		sess = tf.Session(server.target, config=config)
+		queue = create_done_queue(task_index)
 
-	# wait until all workers are done
-	for i in range(len(worker_hosts)):
-		sess.run(queue.dequeue())
-		print("Worker #{} reports job finished." .format(i))
-	 
-	print("Parameter server #{} is quitting".format(task_index))
-	print("Training complete.")
+		print("\n")
+		print("*"*30)
+		print("\nParameter server #{} on this machine.\n\n" \
+			"Waiting on workers to finish.\n\nPress CTRL-\\ to terminate early." .format(task_index))
+		print("*"*30)
+
+		# wait until all workers are done
+		for i in range(len(worker_hosts)):
+			sess.run(queue.dequeue())
+			print("Worker #{} reports job finished." .format(i))
+		 
+		print("Parameter server #{} is quitting".format(task_index))
+		print("Training complete.")
 
   elif job_name == "worker":
 	
@@ -140,6 +150,8 @@ def main(_):
 
 	with tf.device(tf.train.replica_device_setter(
 					worker_device="/job:worker/task:{}".format(task_index),
+					ps_tasks=len(ps_hosts),
+					ps_strategy = greedy,
 					cluster=cluster)):
 	  global_step = tf.Variable(0, name="global_step", trainable=False)
 
@@ -148,28 +160,24 @@ def main(_):
 	  """
 	  BEGIN: Define our model
 	  """
-	  # inputv = tf.placeholder(tf.float32)
-	  # label  = tf.placeholder(tf.float32)
 
-	  # # NOTE: The [] means a scalar value. It is different than [1] (which is a vector of length 1)
-	  # weight = tf.get_variable("slope", [], tf.float32, initializer=tf.random_normal_initializer())
-	  # bias  = tf.get_variable("intercept", [], tf.float32, initializer=tf.random_normal_initializer())
-	  # pred = tf.multiply(inputv, weight) + bias
-
-	  #loss_value = loss(label, pred)
-
-	  model = define_model(False, False, False, 
+	  model = define_model(False, # Don't use upsampling. Instead use tranposed convolution.
 						   imgs_train.shape[1],  # Rows
 						   imgs_train.shape[2],  # Columns
 						   imgs_train.shape[3],  # Input Channels
 						   msks_train.shape[3]) # Output Channels
 
-	  batch_size = 1024
-	  targ = tf.placeholder(tf.float32, shape=((batch_size//len(worker_hosts)),msks_train[0].shape[0],msks_train[0].shape[1],msks_train[0].shape[2]))
+	  targ = tf.placeholder(tf.float32, shape=((batch_size//len(worker_hosts)),msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))
 	  preds = model.output
 
 	  loss_value = dice_coef_loss(targ, preds)
 	  dice_value = dice_coef(targ, preds)
+
+	  targ_test = tf.placeholder(tf.float32, shape=(msks_test.shape[0],msks_test.shape[1],msks_test.shape[2],msks_test.shape[3]))
+	  preds_test = model.output
+
+	  loss_value_test = dice_coef_loss(targ_test, preds_test)
+	  dice_value_test = dice_coef(targ_test, preds_test)
 
 	  """
 	  END: Define our model
@@ -253,24 +261,19 @@ def main(_):
 
 		step = 0
 
-		while (not sv.should_stop()) and (step < NUM_STEPS):
+		print("Loading epoch")
+		epoch = get_epoch(batch_size,imgs_train,msks_train)
+		num_batches = len(epoch)
+		print("Loaded")
 
-			# Define a line with random noise
-			# train_x = np.random.randn(1)*10
-			# train_y = slope * train_x  + intercept + np.random.randn(1) * 0.33
+		while (step < num_batches*FLAGS.epochs):
 
-			# history, loss_v, step = sess.run([train_op, loss_value, global_step], 
-			# 							feed_dict={inputv:train_x, label:train_y})
+			if sv.should_stop():
+					break   # Exit early since the Supervisor node has requested a stop.
 
-			print("Loading epoch")
-			epoch = get_epoch(batch_size,imgs_train,msks_train)
-			num_batches = len(epoch)
-			print('Loaded')
-			current_batch = 1
+			progressbar = trange(len(epoch))
 
-			epoch_start = timeit.default_timer()
-
-			for batch in epoch:#tqdm(epoch):
+			for batch in epoch:
 			
 				if sv.should_stop():
 					break   # Exit early since the Supervisor node has requested a stop.
@@ -287,23 +290,25 @@ def main(_):
 
 				feed_dict = {model.inputs[0]:data[start:end],targ:labels[start:end]}
 
-
 				history, loss_v, dice_v, step = sess.run([train_op, loss_value, dice_value, global_step], 
 											feed_dict=feed_dict)
-			
-				if (step % steps_to_validate == 0):
 
-				  print("[step: {:,} of {:,}] loss: {:.4f}, dice: {:.4f}" \
-						.format(step, NUM_STEPS, loss_v, dice_v))
+				progressbar.set_description('(loss={:.4f}, dice={:.4f})'.format(loss_v, dice_v))
+				progressbar.update(1)
+				
 
-				  if (is_chief):
+			if (is_chief):
 
-					  train_x = imgs_test[:(batch_size//len(worker_hosts))]
-					  train_y = msks_test[:(batch_size//len(worker_hosts))]
+				  train_x = imgs_test  # Calculate on the entire test set
+				  train_y = msks_test
 
-					  feed_dict = {model.inputs[0]:train_x,targ:train_y}
-					  summary = sess.run(summary_op, feed_dict=feed_dict)
-					  sv.summary_computed(sess, summary)  # Update the summary
+				 #  feed_dict = {model.inputs[0]:train_x,targ_test:train_y}
+				 #  loss_v, dice_v = sess.run([loss_value_test, dice_value_test], feed_dict=feed_dict)
+				 #  print("[TEST DATASET] loss: {:.4f}, dice: {:.4f}" \
+					# .format(loss_v, dice_v))
+				  summary = sess.run(summary_op, feed_dict=feed_dict)
+				  sv.summary_computed(sess, summary)  # Update the summary
+
 
 	  
 		 # Send a signal to the ps when done by simply updating a queue in the shared graph

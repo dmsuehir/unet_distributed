@@ -60,8 +60,7 @@ else:
 	
 tf.keras.backend.set_image_data_format(data_format)
 
-def define_model(use_upsampling=False, weights=False, 
-	filepath="", 
+def define_model(use_upsampling=False, 
 	img_rows = 224, 
 	img_cols = 224, 
 	n_cl_in=3,
@@ -158,10 +157,6 @@ def define_model(use_upsampling=False, weights=False,
 					data_format=data_format, activation='sigmoid')(conv9)
 
 	model = tf.keras.models.Model(inputs=[inputs], outputs=[conv10])
-
-	if weights and os.path.isfile(filepath):
-		print('Loading model weights from file {}'.format(filepath))
-		model.load_weights(filepath)
 
 	if print_summary:
 		print (model.summary())	
