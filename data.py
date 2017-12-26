@@ -5,16 +5,16 @@ import numpy as np
 def load_all_data():
 
 	# Load train data
-	print('-'*30)
-	print('Loading and preprocessing train data...')
-	print('-'*30)
+	print('-'*40)
+	print('Loading and preprocessing training data...')
+	print('-'*40)
 	imgs_train, msks_train = load_data(settings_dist.OUT_PATH,"_train")
 	imgs_train, msks_train = update_channels(imgs_train, msks_train, settings_dist.IN_CHANNEL_NO, settings_dist.OUT_CHANNEL_NO, settings_dist.MODE)
 
 	# Load test data
-	print('-'*30)
+	print('-'*40)
 	print('Loading and preprocessing test data...')
-	print('-'*30)
+	print('-'*40)
 	imgs_test, msks_test = load_data(settings_dist.OUT_PATH,"_test")
 	imgs_test, msks_test = update_channels(imgs_test, msks_test, settings_dist.IN_CHANNEL_NO, settings_dist.OUT_CHANNEL_NO, settings_dist.MODE)
 
@@ -49,6 +49,6 @@ def get_epoch(batch_size,imgs_train,msks_train):
 	# Join batches of training examples with batches of labels
 	epoch_of_batches = zip(data,labels)
 
-	return epoch_of_batches
+	return np.array(epoch_of_batches)
 
 

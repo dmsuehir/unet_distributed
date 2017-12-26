@@ -1,53 +1,26 @@
 import os.path
 import tensorflow as tf
 
-def f1(y_true, y_pred):
-	def recall(y_true, y_pred):
-		"""Recall metric.
-
-		Only computes a batch-wise average of recall.
-
-		Computes the recall, a metric for multi-label classification of
-		how many relevant items are selected.
-		"""
-		true_positives = tf.keras.backend.sum(tf.keras.backend.round(tf.keras.backend.clip(y_true * y_pred, 0, 1)))
-		possible_positives = tf.keras.backend.sum(tf.keras.backend.round(tf.keras.backend.clip(y_true, 0, 1)))
-		recall = true_positives / (possible_positives + tf.keras.backend.epsilon())
-		return recall
-
-	def precision(y_true, y_pred):
-		"""Precision metric.
-
-		Only computes a batch-wise average of precision.
-
-		Computes the precision, a metric for multi-label classification of
-		how many selected items are relevant.
-		"""
-		true_positives = tf.keras.backend.sum(tf.keras.backend.round(tf.keras.backend.clip(y_true * y_pred, 0, 1)))
-		predicted_positives = tf.keras.backend.sum(tf.keras.backend.round(tf.keras.backend.clip(y_pred, 0, 1)))
-		precision = true_positives / (predicted_positives + tf.keras.backend.epsilon())
-		return precision
-	precision = precision(y_true, y_pred)
-	recall = recall(y_true, y_pred)
-	return ((precision*recall)/(precision+recall))
-
-
 def dice_coef(y_true, y_pred, smooth = 1. ):
-	y_true_f = tf.keras.backend.flatten(y_true)
-	y_pred_f = tf.keras.backend.flatten(y_pred)
-	intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
-	coef = (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
+	
+	#y_true_f = tf.convert_to_tensor(y_true) 
+	
+	intersection = tf.reduce_sum(y_true * y_pred)
+	coef = (tf.constant(2.) * intersection + smooth) / (tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth)
 	return coef
+	
 
-def dice_coef_loss(y_true, y_pred):
+def dice_coef_loss(y_true, y_pred, smooth = 1.):
 
-	smooth = 1.
-	y_true_f = tf.keras.backend.flatten(y_true)
-	y_pred_f = tf.keras.backend.flatten(y_pred)
-	intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
-	loss = -tf.keras.backend.log(2. * intersection + smooth) + \
-		tf.keras.backend.log((tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth))
+	#y_true_f = tf.convert_to_tensor(y_true) 
+	 
+	intersection = tf.reduce_sum(y_true * y_pred)
+
+	loss = -tf.log(tf.constant(2.) * intersection + smooth) + \
+		tf.log((tf.reduce_sum(y_true) + tf.reduce_sum(y_pred) + smooth))
 	return loss
+	
+
 
 CHANNEL_LAST = True
 if CHANNEL_LAST:
@@ -60,14 +33,8 @@ else:
 	
 tf.keras.backend.set_image_data_format(data_format)
 
-def define_model(use_upsampling=False, 
-	img_rows = 224, 
-	img_cols = 224, 
-	n_cl_in=3,
-	n_cl_out=3, 
-	dropout=0.2,
-	print_summary = False):
-	""" difference from model: img_rows and cols, order of axis, and concat_axis"""
+def define_model(input_tensor, use_upsampling=False, n_cl_out=1, dropout=0.2, print_summary = False):
+
 	
 	# Set keras learning phase to train
 	tf.keras.backend.set_learning_phase(True)
@@ -75,12 +42,8 @@ def define_model(use_upsampling=False,
 	# Don't initialize variables on the fly
 	tf.keras.backend.manual_variable_initialization(False)
 
-	if CHANNEL_LAST:
-		inputs = tf.keras.layers.Input((img_rows, img_cols, n_cl_in), name='Images')
-	else:
-		inputs = tf.keras.layers.Input((n_cl_in, img_rows, img_cols), name='Images')
-
-
+	inputs = tf.keras.layers.Input(tensor=input_tensor, name='Images')
+	
 	params = dict(kernel_size=(3, 3), activation='relu', 
 				  padding='same', data_format=data_format,
 				  kernel_initializer='he_uniform') #RandomUniform(minval=-0.01, maxval=0.01, seed=816))
@@ -161,5 +124,5 @@ def define_model(use_upsampling=False,
 	if print_summary:
 		print (model.summary())	
 
-	return model
+	return conv10
 

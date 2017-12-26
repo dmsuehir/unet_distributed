@@ -33,10 +33,11 @@ import numpy as np
 import tensorflow as tf
 import os
 import socket
-import timeit
+
+# Fancy progress bar
 from tqdm import tqdm
-from tqdm import trange
 tqdm.monitor_interval = 0
+from tqdm import trange
 
 from model import define_model, dice_coef_loss, dice_coef
 from data import load_all_data, get_epoch
@@ -114,11 +115,11 @@ def main(_):
 
 
   greedy = tf.contrib.training.GreedyLoadBalancingStrategy(num_tasks=len(ps_hosts), 
-  								load_fn=tf.contrib.training.byte_size_load_fn)
-  	
+								load_fn=tf.contrib.training.byte_size_load_fn)
+	
   if job_name == "ps":
 
-  	with tf.device(tf.train.replica_device_setter(
+	with tf.device(tf.train.replica_device_setter(
 					worker_device="/job:ps/task:{}".format(task_index),
 					ps_tasks=len(ps_hosts),
 					ps_strategy = greedy,
@@ -161,24 +162,20 @@ def main(_):
 	  BEGIN: Define our model
 	  """
 
-	  model = define_model(False, # Don't use upsampling. Instead use tranposed convolution.
-						   imgs_train.shape[1],  # Rows
-						   imgs_train.shape[2],  # Columns
-						   imgs_train.shape[3],  # Input Channels
-						   msks_train.shape[3]) # Output Channels
+	  imgs = tf.placeholder(tf.float32, shape=(None,msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))\
 
-	  targ = tf.placeholder(tf.float32, shape=((batch_size//len(worker_hosts)),msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))
-	  preds = model.output
+	  msks = tf.placeholder(tf.float32, shape=(None,msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))
+	  
+	  preds = define_model(imgs,
+	  						False) # Don't use upsampling. Instead use tranposed convolution.
+						
+	  print('Model defined')
+	  #preds = model.output   
+ 
+	  loss_value = dice_coef_loss(msks, preds)
+	  dice_value = dice_coef(msks, preds)
 
-	  loss_value = dice_coef_loss(targ, preds)
-	  dice_value = dice_coef(targ, preds)
-
-	  targ_test = tf.placeholder(tf.float32, shape=(msks_test.shape[0],msks_test.shape[1],msks_test.shape[2],msks_test.shape[3]))
-	  preds_test = model.output
-
-	  loss_value_test = dice_coef_loss(targ_test, preds_test)
-	  dice_value_test = dice_coef(targ_test, preds_test)
-
+	 
 	  """
 	  END: Define our model
 	  """
@@ -187,7 +184,7 @@ def main(_):
 	  #optimizer = tf.train.GradientDescentOptimizer(learning_rate)
 	  optimizer = tf.train.AdamOptimizer(learning_rate)
 
-	  grads_and_vars = optimizer.compute_gradients(loss_value, model.trainable_weights)
+	  grads_and_vars = optimizer.compute_gradients(loss_value) 
 	  if is_sync:
 		
 		rep_op = tf.train.SyncReplicasOptimizer(optimizer,
@@ -218,6 +215,11 @@ def main(_):
 	  tf.summary.scalar("dice", dice_value)
 	  tf.summary.histogram("dice", dice_value)
 	  
+	  tf.summary.image("predictions", preds, max_outputs=3)
+	  tf.summary.image("ground_truth", msks, max_outputs=3)
+	  tf.summary.image("images", imgs, max_outputs=3)
+
+	  
 	# Need to remove the checkpoint directory before each new run
 	# import shutil
 	# shutil.rmtree(CHECKPOINT_DIRECTORY, ignore_errors=True)
@@ -240,7 +242,7 @@ def main(_):
 	# For now, I just handle the summary calls explicitly.
 	import time
 	sv = tf.train.Supervisor(is_chief=is_chief,
-		logdir=CHECKPOINT_DIRECTORY+'/run'+time.strftime("_%Y%m%d_%H%M%S"),
+		logdir=CHECKPOINT_DIRECTORY+"/run"+time.strftime("_%Y%m%d_%H%M%S"),
 		init_op=init_op,
 		summary_op=None, 
 		saver=saver,
@@ -259,54 +261,53 @@ def main(_):
 			sv.start_queue_runners(sess, [chief_queue_runner])
 			sess.run(init_token_op)
 
-		step = 0
-
 		print("Loading epoch")
 		epoch = get_epoch(batch_size,imgs_train,msks_train)
 		num_batches = len(epoch)
 
 		print("Loaded")
+		
+		step = 0
+		batch_idx = 0
 
-		while (step < num_batches*FLAGS.epochs):
+		progressbar = trange(len(epoch))
 
-			if sv.should_stop():
-					break   # Exit early since the Supervisor node has requested a stop.
+		while (not sv.should_stop()) and (step < (num_batches*FLAGS.epochs - task_index)):
 
-			progressbar = trange(len(epoch))
+			data = epoch[batch_idx, 0]
+			labels = epoch[batch_idx, 1]
 
-			for batch in epoch:
+			# For n workers, break up the batch into n sections
+			# Send each worker a different section of the batch
+			data_range = int(batch_size/len(worker_hosts))
+			start = data_range*task_index
+			end = start + data_range
+
+			feed_dict = {imgs:data[start:end],msks:labels[start:end]}
+					
+			history, loss_v, dice_v, step = sess.run([train_op, loss_value, dice_value, global_step], 
+										feed_dict=feed_dict)
 			
-				if sv.should_stop():
-					break   # Exit early since the Supervisor node has requested a stop.
+			
+			# Reset the epoch and print a new progress bar
+			if (batch_idx >= num_batches):
+				batch_idx = 0
+				progressbar = trange(len(epoch))
 
-				batch_start = timeit.default_timer()
-				data = batch[0]
-				labels = batch[1]
+			batch_idx += 1
 
-				# For n workers, break up the batch into n sections
-				# Send each worker a different section of the batch
-				data_range = int(batch_size/len(worker_hosts))
-				start = data_range*task_index
-				end = start + data_range
-
-				feed_dict = {model.inputs[0]:data[start:end],targ:labels[start:end]}
-
-				history, loss_v, dice_v, step = sess.run([train_op, loss_value, dice_value, global_step], 
-											feed_dict=feed_dict)
-
-				progressbar.set_description('(loss={:.4f}, dice={:.4f})'.format(loss_v, dice_v))
-				progressbar.update(1)
-				
+			# Print the loss and dice metric in the progress bar.
+			progressbar.set_description("(loss={:.4f}, dice={:.4f})".format(loss_v, dice_v))
+			progressbar.update(1)
 
 			if (is_chief):
 
-				  train_x = imgs_test  # Calculate on the entire test set
-				  train_y = msks_test
+				  
+				 # feed_dict = {imgs:tf.convert_to_tensor(imgs_test),msks:tf.convert_to_tensor(msks_test)}
 
-				 #  feed_dict = {model.inputs[0]:train_x,targ_test:train_y}
-				 #  loss_v, dice_v = sess.run([loss_value_test, dice_value_test], feed_dict=feed_dict)
-				 #  print("[TEST DATASET] loss: {:.4f}, dice: {:.4f}" \
-					# .format(loss_v, dice_v))
+				 #  dice_v = dice_value.eval(feed_dict=feed_dict)
+				 #  print("[TEST DATASET] dice: {:.4f}" \
+					# .format(dice_v))
 				  summary = sess.run(summary_op, feed_dict=feed_dict)
 				  sv.summary_computed(sess, summary)  # Update the summary
 
@@ -316,7 +317,7 @@ def main(_):
 		for op in enq_ops:
 			sess.run(op)   # Send the "work completed" signal to the parameter server
 				
-	print('Finished work on this node.')
+	print("\n\n\n\nFinished work on this node.")
 	sv.request_stop()
 	#sv.stop()
 
