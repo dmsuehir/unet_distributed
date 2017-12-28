@@ -121,6 +121,9 @@ def define_model(input_tensor, use_upsampling=False, n_cl_out=1, dropout=0.2, pr
 
 	model = tf.keras.models.Model(inputs=[inputs], outputs=[conv10])
 
+	# optimizer=tf.keras.optimizers.Adam()
+	# model.compile(optimizer=optimizer, loss=dice_coef_loss, metrics=[dice_coef])
+
 	if print_summary:
 		print (model.summary())	
 
