@@ -24,7 +24,7 @@ print("Distributed TensorFlow training")
 print("Parameter server nodes are: {}".format(ps_list))
 print("Worker nodes are {}".format(worker_list))
 
-CHECKPOINT_DIRECTORY = "./checkpoints"
+CHECKPOINT_DIRECTORY = settings_dist.CHECKPOINT_DIRECTORY
 
 ####################################################################
 
@@ -42,7 +42,7 @@ from model import define_model, dice_coef_loss, dice_coef
 from data import load_all_data, get_epoch
 import multiprocessing
 
-num_inter_op_threads = 2
+num_inter_op_threads = settings_dist.NUM_INTER_THREADS
 num_intra_op_threads = settings_dist.NUM_INTRA_THREADS  #multiprocessing.cpu_count() // 2 # Use half the CPU cores
 
 # Unset proxy env variable to avoid gRPC errors
@@ -53,24 +53,34 @@ del os.environ["https_proxy"]
 #os.environ["GRPC_VERBOSITY"]="DEBUG"
 #os.environ["GRPC_TRACE"] = "all"
 
-os.environ["KMP_BLOCKTIME"] = "0"
+os.environ["KMP_BLOCKTIME"] = str(settings_dist.BLOCKTIME)
 os.environ["KMP_AFFINITY"] = "granularity=thread,compact,1,0"
 os.environ["OMP_NUM_THREADS"] = str(num_intra_op_threads)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Get rid of the AVX, SSE warnings
 
 # Define parameters
 FLAGS = tf.app.flags.FLAGS
+tf.app.flags.DEFINE_boolean("const_learningrate", settings_dist.CONST_LEARNINGRATE,
+                            "Keep learning rate constant or exponentially decay")
 tf.app.flags.DEFINE_float("learning_rate", settings_dist.LEARNINGRATE,
                           "Initial learning rate.")
+
+tf.app.flags.DEFINE_float("lr_fraction", settings_dist.LR_FRACTION,
+                            "Learning rate fraction for decay")
+tf.app.flags.DEFINE_integer("decay_steps", settings_dist.DECAY_STEPS,
+                            "Number of steps for decay")
+
+
 tf.app.flags.DEFINE_integer("is_sync", 0, "Synchronous updates?")
 tf.app.flags.DEFINE_string("ip", socket.gethostbyname(socket.gethostname()),
                            "IP address of this machine")
 tf.app.flags.DEFINE_integer("batch_size", settings_dist.BATCH_SIZE,
                             "Batch size of input data")
 tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
-                            "Batch size of input data")
+                            "Number of epochs to train")
+
+
 # Hyperparameters
-learning_rate = FLAGS.learning_rate
 batch_size = FLAGS.batch_size
 
 if (FLAGS.ip in ps_hosts):
@@ -195,6 +205,21 @@ def main(_):
             """
             END: Define our model
             """
+
+            # Decay learning rate from initial_learn_rate to initial_learn_rate*fraction in decay_steps global steps
+            if FLAGS.const_learningrate:
+                learning_rate = tf.convert_to_tensor(FLAGS.learning_rate, dtype=tf.float32)
+            else:
+                learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, 
+                    global_step, FLAGS.decay_steps, FLAGS.lr_fraction, staircase=False)
+
+
+            # Compensate learning rate for asynchronous distributed
+            # THEORY: We need to cut the learning rate by at least the number 
+            # of workers since there are likely to be that many times increased
+            # parameter updates.
+            if not is_sync:
+                learning_rate /= len(worker_hosts)
 
             # Define gradient descent optimizer
             #optimizer = tf.train.GradientDescentOptimizer(learning_rate)
