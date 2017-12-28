@@ -129,3 +129,17 @@ def define_model(input_tensor, use_upsampling=False, n_cl_out=1, dropout=0.2, pr
 
 	return conv10
 
+
+def sensitivity(y_true, y_pred, smooth = 1. ):
+	
+	intersection = tf.reduce_sum(y_true * y_pred)
+	coef = (intersection + smooth) / (tf.reduce_sum(y_true) + smooth)
+	return coef
+
+def specificity(y_true, y_pred, smooth = 1. ):
+	
+	intersection = tf.reduce_sum(y_true * y_pred)
+	coef = (intersection + smooth) / (tf.reduce_sum(y_pred) + smooth)
+	return coef
+	
+

@@ -38,7 +38,7 @@ from tqdm import tqdm
 #tqdm.monitor_interval = 0
 from tqdm import trange
 
-from model import define_model, dice_coef_loss, dice_coef
+from model import define_model, dice_coef_loss, dice_coef, sensitivity, specificity
 from data import load_all_data, get_epoch
 import multiprocessing
 
@@ -178,6 +178,7 @@ def main(_):
             imgs_train, msks_train, imgs_test, msks_test = load_all_data()
             train_length = imgs_train.shape[0]  # Number of train datasets
             test_length  = imgs_test.shape[0]   # Number of test datasets
+
             """
             BEGIN: Define our model
             """
@@ -200,8 +201,14 @@ def main(_):
             loss_value = dice_coef_loss(msks, preds)
             dice_value = dice_coef(msks, preds)
 
-            test_loss_value = dice_coef_loss(msks, preds)
-            test_dice_value = dice_coef(msks, preds)
+            sensitivity_value = sensitivity(msks, preds)
+            specificity_value = specificity(msks, preds)
+
+            test_loss_value = tf.placeholder(tf.float32, ())
+            test_dice_value = tf.placeholder(tf.float32, ())
+
+            test_sensitivity_value = tf.placeholder(tf.float32, ())
+            test_specificity_value = tf.placeholder(tf.float32, ())
 
             """
             END: Define our model
@@ -221,10 +228,11 @@ def main(_):
             # parameter updates.
             if not is_sync:
                 learning_rate /= len(worker_hosts)
-
-            # Define gradient descent optimizer
-            #optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-            optimizer = tf.train.AdamOptimizer(learning_rate)
+                optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+                #optimizer = tf.train.AdagradOptimizer(learning_rate)
+            else:
+                optimizer = tf.train.AdamOptimizer(learning_rate)
+           
 
             grads_and_vars = optimizer.compute_gradients(loss_value)
             if is_sync:
@@ -258,6 +266,9 @@ def main(_):
             tf.summary.scalar("dice", dice_value)
             tf.summary.histogram("dice", dice_value)
 
+            tf.summary.scalar("sensitivity", sensitivity_value)
+            tf.summary.scalar("specificity", specificity_value)
+
             tf.summary.image("predictions", preds, max_outputs=3)
             tf.summary.image("ground_truth", msks, max_outputs=3)
             tf.summary.image("images", imgs, max_outputs=3)
@@ -267,6 +278,8 @@ def main(_):
             num_batches = len(epoch)
             print("Loaded")
 
+            # Print the percent steps complete to TensorBoard
+            #   so that we know how much of the training remains.
             num_steps_tf = tf.constant(num_batches * FLAGS.epochs, tf.float32)
             percent_done_value = tf.constant(100.0) * tf.to_float(global_step) / num_steps_tf
             tf.summary.scalar("percent_complete", percent_done_value)
@@ -288,11 +301,16 @@ def main(_):
             summary_op = None
 
         # Add summaries for test data
+        # These summary ops are not part of the merge all op.
+        # This way we can call these separately.
         test_loss_value = tf.placeholder(tf.float32, ())
         test_dice_value = tf.placeholder(tf.float32, ())
 
         test_loss_summary = tf.summary.scalar("loss_test", test_loss_value)
         test_dice_summary = tf.summary.scalar("dice_test", test_dice_value)
+
+        test_sens_summary = tf.summary.scalar("sensitivity_test", test_sensitivity_value)
+        test_spec_summary = tf.summary.scalar("specificity_test", test_specificity_value)
 
 
         # TODO:  Theoretically I can pass the summary_op into
@@ -359,6 +377,8 @@ def main(_):
                     
                         dice_v_test = 0.0
                         loss_v_test = 0.0
+                        sens_v_test = 0.0
+                        spec_v_test = 0.0
 
                         for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), 
                             desc="Calculating metrics on test dataset", leave=False):
@@ -367,20 +387,29 @@ def main(_):
 
                             feed_dict = {imgs: x_test, msks: y_test}
 
-                            l_v, d_v = sess.run([loss_value, dice_value], feed_dict=feed_dict)
+                            l_v, d_v, st_v, sp_v = sess.run([loss_value, dice_value,
+                                sensitivity_value, specificity_value], feed_dict=feed_dict)
 
                             dice_v_test += d_v / (test_length // batch_size)
                             loss_v_test += l_v / (test_length // batch_size)
+                            sens_v_test += st_v / (test_length // batch_size)
+                            spec_v_test += sp_v / (test_length // batch_size)
 
 
-                        print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}" \
+                        print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}, " \
+                            "Test Sensitivity = {:.4f}, Test Specificity = {:.4f}" \
                             .format((step // num_batches), FLAGS.epochs,
-                                loss_v_test, dice_v_test))
+                                loss_v_test, dice_v_test, sens_v_test, spec_v_test))
 
+                        # Add our test summary metrics to TensorBoard
                         sv.summary_computed(sess, sess.run(test_loss_summary, 
                             feed_dict={test_loss_value:loss_v_test}) ) 
                         sv.summary_computed(sess, sess.run(test_dice_summary, 
                             feed_dict={test_dice_value:dice_v_test}) )  
+                        sv.summary_computed(sess, sess.run(test_sens_summary, 
+                            feed_dict={test_sensitivity_value:sens_v_test}) ) 
+                        sv.summary_computed(sess, sess.run(test_spec_summary, 
+                            feed_dict={test_specificity_value:spec_v_test}) )  
 
 
                         saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
