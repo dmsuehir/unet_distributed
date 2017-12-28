@@ -351,9 +351,6 @@ def main(_):
                         sv.summary_computed(sess, sess.run(test_dice_summary, 
                             feed_dict={test_dice_value:dice_v_test}) )  
 
-
-                        saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
-
                 # Shuffle every epoch
                 if (batch_idx==0) and (step > num_batches):
 
@@ -367,12 +364,44 @@ def main(_):
                 progressbar.update(step-last_step)
                 last_step = step
 
+
+            if (is_chief):
+
+                dice_v_test = 0.0
+                loss_v_test = 0.0
+
+                for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), 
+                    desc="Calculating metrics on test dataset", leave=False):
+                    x_test = imgs_test[idx:(idx+batch_size)] 
+                    y_test = msks_test[idx:(idx+batch_size)] 
+
+                    feed_dict = {imgs: x_test, msks: y_test}
+
+                    l_v, d_v = sess.run([loss_value, dice_value], feed_dict=feed_dict)
+
+                    dice_v_test += d_v / (test_length // batch_size)
+                    loss_v_test += l_v / (test_length // batch_size)
+
+
+                print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}" \
+                    .format((step // num_batches), FLAGS.epochs,
+                        loss_v_test, dice_v_test))
+
+                sv.summary_computed(sess, sess.run(test_loss_summary, 
+                    feed_dict={test_loss_value:loss_v_test}) ) 
+                sv.summary_computed(sess, sess.run(test_dice_summary, 
+                    feed_dict={test_dice_value:dice_v_test}) )  
+
+                # Save the meta graph
+                meta_graph_def = tf.train.export_meta_graph(filename=CHECKPOINT_DIRECTORY+'/final_model.meta')
+
             # Send a signal to the ps when done by simply updating a queue in the shared graph
             for op in enq_ops:
                 sess.run(
                     op
                 )  # Send the "work completed" signal to the parameter server
 
+        
         print("\n\n\n\nFinished work on this node.")
 
         sv.request_stop()
@@ -381,3 +410,6 @@ def main(_):
 
 if __name__ == "__main__":
     tf.app.run()
+
+
+
