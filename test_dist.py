@@ -83,6 +83,8 @@ tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
 # Hyperparameters
 batch_size = FLAGS.batch_size
 
+time_left_to_train = 0  # Number of seconds left in training
+
 if (FLAGS.ip in ps_hosts):
     job_name = "ps"
     task_index = ps_hosts.index(FLAGS.ip)
@@ -110,7 +112,6 @@ def create_done_queue(i):
 
 def create_done_queues():
     return [create_done_queue(i) for i in range(len(ps_hosts))]
-
 
 def main(_):
 
@@ -392,13 +393,45 @@ def main(_):
                 progressbar.update(step-last_step)
                 last_step = step
 
+            # Perform the final test set metric
+            if is_chief:
+                    
+                dice_v_test = 0.0
+                loss_v_test = 0.0
+
+                for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), 
+                    desc="Calculating metrics on test dataset", leave=False):
+                    x_test = imgs_test[idx:(idx+batch_size)] 
+                    y_test = msks_test[idx:(idx+batch_size)] 
+
+                    feed_dict = {imgs: x_test, msks: y_test}
+
+                    l_v, d_v = sess.run([loss_value, dice_value], feed_dict=feed_dict)
+
+                    dice_v_test += d_v / (test_length // batch_size)
+                    loss_v_test += l_v / (test_length // batch_size)
+
+
+                print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}" \
+                    .format((step // num_batches), FLAGS.epochs,
+                        loss_v_test, dice_v_test))
+
+                sv.summary_computed(sess, sess.run(test_loss_summary, 
+                    feed_dict={test_loss_value:loss_v_test}) ) 
+                sv.summary_computed(sess, sess.run(test_dice_summary, 
+                    feed_dict={test_dice_value:dice_v_test}) )  
+
+
+                saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
+
+
             # Send a signal to the ps when done by simply updating a queue in the shared graph
             for op in enq_ops:
                 sess.run(
                     op
                 )  # Send the "work completed" signal to the parameter server
 
-        print("\n\n\n\nFinished work on this node.")
+        print("\n\nFinished work on this node.")
 
         sv.request_stop()
         #sv.stop()
