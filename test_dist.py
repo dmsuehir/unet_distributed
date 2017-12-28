@@ -262,6 +262,15 @@ def main(_):
             tf.summary.image("ground_truth", msks, max_outputs=3)
             tf.summary.image("images", imgs, max_outputs=3)
 
+            print("Loading epoch")
+            epoch = get_epoch(batch_size, imgs_train, msks_train)
+            num_batches = len(epoch)
+            print("Loaded")
+
+            num_steps_tf = tf.constant(num_batches * FLAGS.epochs, tf.float32)
+            percent_done_value = tf.constant(100.0) * tf.to_float(global_step) / num_steps_tf
+            tf.summary.scalar("percent_complete", percent_done_value)
+
         # Need to remove the checkpoint directory before each new run
         # import shutil
         # shutil.rmtree(CHECKPOINT_DIRECTORY, ignore_errors=True)
@@ -284,6 +293,7 @@ def main(_):
 
         test_loss_summary = tf.summary.scalar("loss_test", test_loss_value)
         test_dice_summary = tf.summary.scalar("dice_test", test_dice_value)
+
 
         # TODO:  Theoretically I can pass the summary_op into
         # the Supervisor and have it handle the TensorBoard
@@ -312,11 +322,6 @@ def main(_):
             if is_chief and is_sync:
                 sv.start_queue_runners(sess, [chief_queue_runner])
                 sess.run(init_token_op)
-
-            print("Loading epoch")
-            epoch = get_epoch(batch_size, imgs_train, msks_train)
-            num_batches = len(epoch)
-            print("Loaded")
 
             step = 0
 
