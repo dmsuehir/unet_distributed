@@ -24,7 +24,15 @@ print("Distributed TensorFlow training")
 print("Parameter server nodes are: {}".format(ps_list))
 print("Worker nodes are {}".format(worker_list))
 
+<<<<<<< HEAD
 CHECKPOINT_DIRECTORY = "./checkpoints"
+=======
+<<<<<<< HEAD
+CHECKPOINT_DIRECTORY = "./checkpoints"
+=======
+CHECKPOINT_DIRECTORY = "checkpoints"
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
 
 ####################################################################
 
@@ -132,9 +140,22 @@ def main(_):
             sess = tf.Session(server.target, config=config)
             queue = create_done_queue(task_index)
 
+<<<<<<< HEAD
             print("*" * 30)
             print("\nParameter server #{} on {}.\n\n" \
              "Waiting on workers to finish.\n\nPress CTRL-\\ to terminate early.\n"  \
+=======
+<<<<<<< HEAD
+            print("*" * 30)
+            print("\nParameter server #{} on {}.\n\n" \
+             "Waiting on workers to finish.\n\nPress CTRL-\\ to terminate early.\n"  \
+=======
+            print("\n")
+            print("*" * 30)
+            print("\nParameter server #{} on {}.\n\n" \
+             "Waiting on workers to finish.\n\nPress CTRL-\\ to terminate early."  \
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
              .format(task_index, ps_hosts[task_index]))
             print("*" * 30)
 
@@ -171,8 +192,17 @@ def main(_):
             BEGIN: Define our model
             """
 
+<<<<<<< HEAD
             imgs = tf.placeholder(tf.float32, shape=(None,msks_train.shape[1],
                 msks_train.shape[2],msks_train.shape[3]))
+=======
+<<<<<<< HEAD
+            imgs = tf.placeholder(tf.float32, shape=(None,msks_train.shape[1],
+                msks_train.shape[2],msks_train.shape[3]))
+=======
+            imgs = tf.placeholder(tf.float32, shape=(None,msks_train.shape[1],msks_train.shape[2],msks_train.shape[3]))\
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
 
             msks = tf.placeholder(
                 tf.float32,
@@ -180,11 +210,27 @@ def main(_):
                        msks_train.shape[3]))
 
             preds = define_model(
+<<<<<<< HEAD
                 imgs, False, settings_dist.OUT_CHANNEL_NO
             )  # Don't use upsampling. Instead use tranposed convolution.
 
             print('Model defined')
             
+=======
+<<<<<<< HEAD
+                imgs, False, settings_dist.OUT_CHANNEL_NO
+            )  # Don't use upsampling. Instead use tranposed convolution.
+
+            print('Model defined')
+            
+=======
+                imgs, False
+            )  # Don't use upsampling. Instead use tranposed convolution.
+
+            print('Model defined')
+            #preds = model.output
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
 
             loss_value = dice_coef_loss(msks, preds)
             dice_value = dice_coef(msks, preds)
@@ -286,6 +332,7 @@ def main(_):
             if is_chief and is_sync:
                 sv.start_queue_runners(sess, [chief_queue_runner])
                 sess.run(init_token_op)
+<<<<<<< HEAD
 
             print("Loading epoch")
             epoch = get_epoch(batch_size, imgs_train, msks_train)
@@ -297,6 +344,19 @@ def main(_):
             progressbar = trange(num_batches * FLAGS.epochs)
             last_step = 0
 
+=======
+
+            print("Loading epoch")
+            epoch = get_epoch(batch_size, imgs_train, msks_train)
+            num_batches = len(epoch)
+            print("Loaded")
+
+            step = 0
+
+            progressbar = trange(num_batches * FLAGS.epochs)
+            last_step = 0
+
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
             while (not sv.should_stop()) and (
                     step < (num_batches * FLAGS.epochs)):
 
@@ -343,7 +403,15 @@ def main(_):
 
 
                         print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}" \
+<<<<<<< HEAD
                             .format((step // num_batches), FLAGS.epochs,
+=======
+<<<<<<< HEAD
+                            .format((step // num_batches), FLAGS.epochs,
+=======
+                            .format((step // num_batches) + 1, FLAGS.epochs,
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
                                 loss_v_test, dice_v_test))
 
                         sv.summary_computed(sess, sess.run(test_loss_summary, 
@@ -358,6 +426,15 @@ def main(_):
                     epoch = get_epoch(batch_size, imgs_train, msks_train)
 
 
+<<<<<<< HEAD
+                        saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
+
+                        print("Shuffling epoch")
+                        epoch = get_epoch(batch_size, imgs_train, msks_train)
+
+
+=======
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
                 # Print the loss and dice metric in the progress bar.
                 progressbar.set_description(
                     "(loss={:.4f}, dice={:.4f})".format(loss_v, dice_v))
@@ -403,7 +480,14 @@ def main(_):
 
         
         print("\n\n\n\nFinished work on this node.")
+<<<<<<< HEAD
 
+=======
+<<<<<<< HEAD
+
+=======
+>>>>>>> 3afbffa2dff20772909b5e14969a3631d67162a4
+>>>>>>> ba6215824a189e2121d0aab784d6bb0d666f660c
         sv.request_stop()
         #sv.stop()
 
