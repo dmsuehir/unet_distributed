@@ -466,6 +466,7 @@ def main(_):
                 )  # Send the "work completed" signal to the parameter server
 
         print("\n\nFinished work on this node.")
+        import time; time.sleep(3) # Sleep for 3 seconds then exit
 
         sv.request_stop()
         #sv.stop()

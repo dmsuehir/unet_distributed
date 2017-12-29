@@ -37,3 +37,14 @@ WORKER_HOSTS = ["10.100.68.193","10.100.68.183","10.100.68.185","10.100.68.187"]
 WORKER_PORTS = ["2222", "2222", "2222", "2222"]
 
 CHECKPOINT_DIRECTORY = "checkpoints/"
+
+# TensorBoard
+# To run TensorBoard you must log into the chief worker (first one in the WORKER_HOSTS list).
+# Start your Tensorflow virtual environment and run `tensorboard --logdir=checkpoints`
+# where checkpoints is whatever directory holds your log files.
+# On your local machine (the one where you can run Chrome web browser), run 
+# the command: `ssh -f bduser@10.54.68.193 -L 6006:localhost:6006 -N`
+# where the `bduser@10.54.68.193` is replaced with the username and IP of the chief worker.
+# Then on the local machine start Chrome webbrowser and go to url  http://localhost:6006
+
+# RegEx to exclude plots that match "test", "step", and "complete":  ^((?!test)(?!step)(?!complete).)*$  
