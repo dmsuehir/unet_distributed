@@ -396,8 +396,8 @@ def main(_):
                             spec_v_test += sp_v / (test_length // batch_size)
 
 
-                        print("\nEpoch {} of {}: Test loss = {:.4f}, Test Dice = {:.4f}, " \
-                            "Test Sensitivity = {:.4f}, Test Specificity = {:.4f}" \
+                        print("\nEpoch {} of {}: TEST DATASET\nloss = {:.4f}\nDice = {:.4f}\n" \
+                            "Sensitivity = {:.4f}\nSpecificity = {:.4f}" \
                             .format((step // num_batches), FLAGS.epochs,
                                 loss_v_test, dice_v_test, sens_v_test, spec_v_test))
 
