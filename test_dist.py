@@ -268,7 +268,9 @@ def main(_):
             tf.summary.histogram("dice", dice_value)
 
             tf.summary.scalar("sensitivity", sensitivity_value)
+            tf.summary.histogram("sensitivity", sensitivity_value)
             tf.summary.scalar("specificity", specificity_value)
+            tf.summary.histogram("specificity", specificity_value)
 
             tf.summary.image("predictions", preds, max_outputs=settings_dist.TENSORBOARD_IMAGES)
             tf.summary.image("ground_truth", msks, max_outputs=settings_dist.TENSORBOARD_IMAGES)
