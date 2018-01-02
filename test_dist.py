@@ -41,6 +41,7 @@ from tqdm import trange
 from model import define_model, dice_coef_loss, dice_coef, sensitivity, specificity
 from data import load_all_data, get_epoch
 import multiprocessing
+import subprocess
 
 num_inter_op_threads = settings_dist.NUM_INTER_THREADS
 num_intra_op_threads = settings_dist.NUM_INTRA_THREADS  #multiprocessing.cpu_count() // 2 # Use half the CPU cores
@@ -345,6 +346,10 @@ def main(_):
 
             progressbar = trange(num_batches * FLAGS.epochs)
             last_step = 0
+
+            # Start TensorBoard on the chief worker
+            if is_chief: 
+                subprocess.Popen('tensorboard --logdir={}'.format(CHECKPOINT_DIRECTORY), shell=True)  
 
             while (not sv.should_stop()) and (
                     step < (num_batches * FLAGS.epochs)):

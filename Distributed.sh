@@ -25,6 +25,7 @@
 
 # Activate the correct Tensorflow environment (conda)
 source activate tf
+cd $1
 # Run the distributed tensorflow
 # We flush messages immediately rather than buffering them.
 # All messages go to the local training.log file
