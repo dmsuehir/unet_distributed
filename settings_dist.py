@@ -21,6 +21,8 @@ DECAY_STEPS = 100
 LR_FRACTION = 0.2
 CONST_LEARNINGRATE = True
 
+USE_UPSAMPLING = False  # True = Use upsampling; False = Use transposed convolution
+
 MODEL_FN = "brainWholeTumor" #Name for Mode=1
 #MODEL_FN = "brainActiveTumor" #Name for Mode=2
 #MODEL_FN = "brainCoreTumor" #Name for Mode=3

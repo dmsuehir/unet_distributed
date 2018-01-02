@@ -80,6 +80,9 @@ tf.app.flags.DEFINE_integer("batch_size", settings_dist.BATCH_SIZE,
 tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
                             "Number of epochs to train")
 
+tf.app.flags.DEFINE_boolean("use_upsampling", settings_dist.USE_UPSAMPLING,
+                            "True = Use upsampling; False = Use transposed convolution")
+
 
 # Hyperparameters
 batch_size = FLAGS.batch_size
@@ -193,8 +196,8 @@ def main(_):
                        msks_train.shape[3]))
 
             preds = define_model(
-                imgs, False, settings_dist.OUT_CHANNEL_NO
-            )  # Don't use upsampling. Instead use tranposed convolution.
+                imgs, FLAGS.use_upsampling, settings_dist.OUT_CHANNEL_NO
+            )  
 
             print('Model defined')
             
