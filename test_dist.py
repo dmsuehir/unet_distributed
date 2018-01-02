@@ -270,9 +270,9 @@ def main(_):
             tf.summary.scalar("sensitivity", sensitivity_value)
             tf.summary.scalar("specificity", specificity_value)
 
-            tf.summary.image("predictions", preds, max_outputs=3)
-            tf.summary.image("ground_truth", msks, max_outputs=3)
-            tf.summary.image("images", imgs, max_outputs=3)
+            tf.summary.image("predictions", preds, max_outputs=settings_dist.TENSORBOARD_IMAGES)
+            tf.summary.image("ground_truth", msks, max_outputs=settings_dist.TENSORBOARD_IMAGES)
+            tf.summary.image("images", imgs, max_outputs=settings_dist.TENSORBOARD_IMAGES)
 
             print("Loading epoch")
             epoch = get_epoch(batch_size, imgs_train, msks_train)

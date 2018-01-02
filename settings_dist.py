@@ -37,6 +37,7 @@ WORKER_HOSTS = ["10.100.68.193","10.100.68.183","10.100.68.185","10.100.68.187"]
 WORKER_PORTS = ["2222", "2222", "2222", "2222"]
 
 CHECKPOINT_DIRECTORY = "checkpoints/"
+TENSORBOARD_IMAGES = 3  # How many images to display on TensorBoard
 
 # TensorBoard
 # To run TensorBoard you must log into the chief worker (first one in the WORKER_HOSTS list).
