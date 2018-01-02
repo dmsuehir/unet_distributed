@@ -32,7 +32,7 @@
         dest: "{{ dir_in }}"
         #rsync_path: "mkdir -p {{ dir_in }}" # Create the directory and its parents if they don't already exist
         
- tasks:
+  tasks:
 
      - name: Run distributed training on the workers and ps. Check the local training.log files for progress.
        command: "sh {{ dir_in }}Distributed.sh {{ dir_in }} {{ inventory_hostname }}"
