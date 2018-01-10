@@ -56,7 +56,7 @@ Depending on your hardware, you may need to modify the NUM_INTRA_THREADS value. 
 
 Note that a natural consequence of synchronizing updates across several workers is a proportional decrease in the number of weight updates per epoch and slower convergence. To combat this slowdown and reduce the training time in multi-node execution, we default to a large initial learning rate which decays as the model trains. This learning rate is also contained in `settings_dist.py`.
 
-We provide the following variables for switching on/off and modulating learning rate decay in Multi-Node execution: 
+We provide the following flags for modifying system variables in Multi-Node execution: 
 
 ```
 --use_upsampling    # Boolean, Use the UpSampling2D method in place of Conv2DTranspose (default: False)
