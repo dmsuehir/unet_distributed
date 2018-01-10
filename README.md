@@ -25,9 +25,9 @@ opencv-python
 h5py
 shutil
 tqdm
-numactl
-ansible
 ```
+
+You'll need Ansible to be installed on your system. (e.g. `sudo yum install ansible -y`)
 
 We use Intel optimized TensorFlow 1.4.0 for Python 2.7. Install instructions can be found at https://software.intel.com/en-us/articles/intel-optimized-tensorflow-wheel-now-available.
 
@@ -65,7 +65,7 @@ We provide the following variables for switching on/off and modulating learning 
 --batch_size        # Int, Images per batch (default: 128)
 --blocktime         # Int, Set KMP_BLOCKTIME environment variable (default: 0)
 --epochs            # Int, Number of epochs to train (default: 10)
---learningrate      # Float, Learning rate (default: 0.0001)
+--learningrate      # Float, Learning rate (default: 0.0005)
 --const_learningrate # Bool, Pass this flag alone if a constant learningrate is desired (default: False)
 --decay_steps # Int, Steps taken to decay learningrate by lr_fraction% (default: 150)
 --lr_fraction # Float, learningrate's fraction of its original value after decay_steps global steps (default: 0.25)
@@ -83,27 +83,21 @@ This command will run the `distributed_train.yml` playbook and initiate the foll
 3. Start the parameter server with the following command:
 
 ```
-Parameter Server:	numactl -p 1 python train_dist.py --job_name="ps" --task_index=0
+Parameter Server:	numactl -p 1 python train_dist.py 
 ```
 
 4. Run the `Distributed.sh` bash script on all the workers, which executes a run command on each worker:
 
 ```
-Worker 0:	numactl -p 1 python train_dist.py --job_name="worker" --task_index=0
-Worker 1:	numactl -p 1 python train_dist.py --job_name="worker" --task_index=1
-Worker 2:	numactl -p 1 python train_dist.py --job_name="worker" --task_index=2
-Worker 3:	numactl -p 1 python train_dist.py --job_name="worker" --task_index=3
+Worker 0:	numactl -p 1 python train_dist.py 
+Worker 1:	numactl -p 1 python train_dist.py 
+Worker 2:	numactl -p 1 python train_dist.py
+Worker 3:	numactl -p 1 python train_dist.py 
 ```
 
 5. While these commands are running, ansible registers their outputs (global step, training loss, dice score, etc.) and saves that to `training.log`. 
 
-To view training progress, as well as sets of images, predictions, and ground truth masks, direct your chrome browser to `http://your_chief_worker_address:6006/`. After a few moments, the webpage will populate and a series of training visualizations will become available. Explore the Scalars, Images, Graphs, Distributions, and Histograms tabs for detailed visualizations of training progress.
-
-If you have not yet created an ssh tunnel between your local machine and the chief worker, you may not be able to connect to the chief worker's tensorboard. Run the following command on your local machine, replacing `lancelot` with your cluster's name:
-
-```
-ssh -f lancelot -L 6006:localhost:6006 -N
-```
+To view training progress, as well as sets of images, predictions, and ground truth masks, direct your chrome browser to `http://your_chief_worker_address:6006/`. After a few moments, the webpage will populate and a series of training visualizations will become available. Explore the Scalars, Images, Graphs, Distributions, and Histograms tabs for detailed visualizations of training progress. You may need to create a SSH tunnel if port 6006 is not visible on your chief worker.
 
 
 
