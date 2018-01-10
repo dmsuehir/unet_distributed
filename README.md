@@ -83,16 +83,16 @@ This command will run the `distributed_train.yml` playbook and initiate the foll
 3. Start the parameter server with the following command:
 
 ```
-Parameter Server:	numactl -p 1 python train_dist.py 
+Parameter Server:	numactl -p 1 python test_dist.py 
 ```
 
 4. Run the `Distributed.sh` bash script on all the workers, which executes a run command on each worker:
 
 ```
-Worker 0:	numactl -p 1 python train_dist.py 
-Worker 1:	numactl -p 1 python train_dist.py 
-Worker 2:	numactl -p 1 python train_dist.py
-Worker 3:	numactl -p 1 python train_dist.py 
+Worker 0:	numactl -p 1 python test_dist.py 
+Worker 1:	numactl -p 1 python test_dist.py 
+Worker 2:	numactl -p 1 python test_dist.py
+Worker 3:	numactl -p 1 python test_dist.py 
 ```
 
 5. While these commands are running, ansible registers their outputs (global step, training loss, dice score, etc.) and saves that to `training.log`. 
