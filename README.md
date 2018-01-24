@@ -1,6 +1,6 @@
 # UNet
 
-UNet architecture for Multimodal Brain Tumor Segmentation, built with TensorFlow 1.4.0 and optimized for single and multi-node execution on Intel KNL and Skylake servers.
+UNet architecture for Multimodal Brain Tumor Segmentation, built with TensorFlow 1.4.0 and optimized for multi-node execution on Intel KNL and Skylake servers.
 
 ## Overview
 
@@ -10,7 +10,7 @@ This repo contains code for multi-node execution:
 
 ## Setup
 
-The following virtual environment must be present on all workers and PS nodes. Use conda to setup a virtual environment called 'tf' with the following command:
+The following virtual environment must be present on all worker and parameter server (PS) nodes. Use conda to setup a virtual environment called 'tf' with the following command:
 
 ```
 conda create -n tf -c intel python=2 pip numpy
@@ -25,10 +25,9 @@ opencv-python
 h5py
 shutil
 tqdm
-ansible
 ```
 
-You'll need Ansible to be installed on your system. (e.g. `sudo yum install ansible -y`)
+Outside of the virtual environment, you'll need Ansible to be installed on your parameter server. (e.g. `sudo yum install ansible -y`)
 
 We use Intel optimized TensorFlow 1.4.0 for Python 2.7. Install instructions can be found at https://software.intel.com/en-us/articles/intel-optimized-tensorflow-wheel-now-available.
 
