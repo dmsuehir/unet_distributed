@@ -25,6 +25,7 @@ opencv-python
 h5py
 shutil
 tqdm
+ansible
 ```
 
 You'll need Ansible to be installed on your system. (e.g. `sudo yum install ansible -y`)
