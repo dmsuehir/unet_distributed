@@ -16,7 +16,7 @@
 --- 
 # Requires you to pass in the "dir_in" variable with the 
 # absolute path of the directory.
-# e.g. ansible-playbook -i inv.yml -e dir_in="/home/bduser/mattson/GE/unet/" distributed_train.yml
+# e.g. ansible-playbook -i inv.yml -e dir_in="/home/bduser/unet/" distributed_train.yml
 
 # Start the parameter server by running its playbook
 #- import_playbook: parameter_server.yml
