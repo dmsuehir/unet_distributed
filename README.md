@@ -6,7 +6,7 @@ UNet architecture for Multimodal Brain Tumor Segmentation, built with TensorFlow
 
 This repo contains code for multi-node execution:
 
-	train_dist.py: Multi-node implementation for synchronous weight updates, optimized for use on Intel KNL servers.
+	test_dist.py: Multi-node implementation for synchronous weight updates, optimized for use on Intel KNL servers.
 
 ## Setup
 
