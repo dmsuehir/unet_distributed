@@ -2,9 +2,9 @@
 # Just replace the IP addresses with whatever machines you want to distribute over
 # Then run this script on each of those machines.
 """
-Usage:  python test_dist.py --ip=10.100.68.245 --is_sync=0
+Usage:  python test_dist.py --ip=10.100.68.816 --is_sync=0
 		for asynchronous TF
-		python test_dist.py --ip=10.100.68.245 --is_sync=1
+		python test_dist.py --ip=10.100.68.816 --is_sync=1
 		for synchronous updates
 		The IP address must match one of the ones in the list below. If not passed,
 		then we"ll default to the current machine"s IP (which is usually correct unless you use OPA)
@@ -105,7 +105,7 @@ else:
 
 def create_done_queue(i):
 	"""
-	Queue used to signal termination of the i"th ps shard. 
+	Queue used to signal termination of the i"th ps shard.
 	Each worker sets their queue value to 1 when done.
 	The parameter server op just checks for this.
 	"""
@@ -178,7 +178,7 @@ def main(_):
 		             ps_strategy=greedy,
 		             cluster=cluster)
 		else:
-			setDevice = "/cpu:0"
+			setDevice = "/cpu:0"  # No parameter server so put variables on chief worker
 
 		with tf.device(setDevice):
 
@@ -203,10 +203,10 @@ def main(_):
 
 			preds = define_model(
 				imgs, FLAGS.use_upsampling, settings_dist.OUT_CHANNEL_NO
-			)  
+			)
 
 			print('Model defined')
-			
+
 
 			loss_value = dice_coef_loss(msks, preds)
 			dice_value = dice_coef(msks, preds)
@@ -228,21 +228,22 @@ def main(_):
 			if FLAGS.const_learningrate:
 				learning_rate = tf.convert_to_tensor(FLAGS.learning_rate, dtype=tf.float32)
 			else:
-				learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, 
+				learning_rate = tf.train.exponential_decay(FLAGS.learning_rate,
 					global_step, FLAGS.decay_steps, FLAGS.lr_fraction, staircase=False)
 
 
 			# Compensate learning rate for asynchronous distributed
-			# THEORY: We need to cut the learning rate by at least the number 
+			# THEORY: We need to cut the learning rate by at least the number
 			# of workers since there are likely to be that many times increased
 			# parameter updates.
-			if not is_sync:
-				learning_rate /= len(worker_hosts)
-				optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-				#optimizer = tf.train.AdagradOptimizer(learning_rate)
-			else:
-				optimizer = tf.train.AdamOptimizer(learning_rate)
-		   
+			# if not is_sync:
+			# 	learning_rate /= len(worker_hosts)
+			# 	optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+			# 	#optimizer = tf.train.AdagradOptimizer(learning_rate)
+			# else:
+			# 	optimizer = tf.train.AdamOptimizer(learning_rate)
+
+			optimizer = tf.train.AdamOptimizer(learning_rate)
 
 			grads_and_vars = optimizer.compute_gradients(loss_value)
 			if is_sync:
@@ -270,7 +271,7 @@ def main(_):
 			saver = tf.train.Saver()
 
 			# These are the values we wish to print to TensorBoard
-			
+
 			tf.summary.scalar("loss", loss_value)
 			tf.summary.histogram("loss", loss_value)
 			tf.summary.scalar("dice", dice_value)
@@ -329,17 +330,29 @@ def main(_):
 		# the Supervisor and have it handle the TensorBoard
 		# log entries. However, doing so seems to hang the code.
 		# For now, I just handle the summary calls explicitly.
-		import time
+		# import time
+		# logDirName = CHECKPOINT_DIRECTORY + "/run" + \
+		# 			time.strftime("_%Y%m%d_%H%M%S")
+
+		if FLAGS.use_upsampling:
+			method_up = "upsample2D"
+		else:
+			method_up = "conv2DTranspose"
+
+		logDirName = CHECKPOINT_DIRECTORY + "/unet," + \
+					"lr={},{},intra={},inter={}".format(FLAGS.learning_rate,
+					method_up, num_intra_op_threads,
+					num_inter_op_threads)
+
 		sv = tf.train.Supervisor(
 			is_chief=is_chief,
-			logdir=CHECKPOINT_DIRECTORY + "/run" +
-			time.strftime("_%Y%m%d_%H%M%S"),
+			logdir=logDirName,
 			init_op=init_op,
 			summary_op=None,
 			saver=saver,
 			global_step=global_step,
-			save_model_secs=60
-		)  # Save the model (with weights) everty 60 seconds
+			save_model_secs=60 # Save the model (with weights) everty 60 seconds
+		)
 
 		# TODO:
 		# I'd like to use managed_session for this as it is more abstract
@@ -359,10 +372,10 @@ def main(_):
 			last_step = 0
 
 			# Start TensorBoard on the chief worker
-			if sv.is_chief: 
-				cmd = 'tensorboard --logdir={}'.format(CHECKPOINT_DIRECTORY) 
-				tb_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
-                       shell=True, preexec_fn=os.setsid) 
+			if sv.is_chief:
+				cmd = 'tensorboard --logdir={}'.format(CHECKPOINT_DIRECTORY)
+				tb_process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                       shell=True, preexec_fn=os.setsid)
 
 			while (not sv.should_stop()) and (
 					step < (num_batches * FLAGS.epochs)):
@@ -392,16 +405,16 @@ def main(_):
 
 					# Calculate metric on test dataset every epoch
 					if (batch_idx==0) and (step > num_batches):
-					
+
 						dice_v_test = 0.0
 						loss_v_test = 0.0
 						sens_v_test = 0.0
 						spec_v_test = 0.0
 
-						for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), 
+						for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size),
 							desc="Calculating metrics on test dataset", leave=False):
-							x_test = imgs_test[idx:(idx+batch_size)] 
-							y_test = msks_test[idx:(idx+batch_size)] 
+							x_test = imgs_test[idx:(idx+batch_size)]
+							y_test = msks_test[idx:(idx+batch_size)]
 
 							feed_dict = {imgs: x_test, msks: y_test}
 
@@ -420,14 +433,14 @@ def main(_):
 								loss_v_test, dice_v_test, sens_v_test, spec_v_test))
 
 						# Add our test summary metrics to TensorBoard
-						sv.summary_computed(sess, sess.run(test_loss_summary, 
-							feed_dict={test_loss_value:loss_v_test}) ) 
-						sv.summary_computed(sess, sess.run(test_dice_summary, 
-							feed_dict={test_dice_value:dice_v_test}) )  
-						sv.summary_computed(sess, sess.run(test_sens_summary, 
-							feed_dict={test_sensitivity_value:sens_v_test}) ) 
-						sv.summary_computed(sess, sess.run(test_spec_summary, 
-							feed_dict={test_specificity_value:spec_v_test}) )  
+						sv.summary_computed(sess, sess.run(test_loss_summary,
+							feed_dict={test_loss_value:loss_v_test}) )
+						sv.summary_computed(sess, sess.run(test_dice_summary,
+							feed_dict={test_dice_value:dice_v_test}) )
+						sv.summary_computed(sess, sess.run(test_sens_summary,
+							feed_dict={test_sensitivity_value:sens_v_test}) )
+						sv.summary_computed(sess, sess.run(test_spec_summary,
+							feed_dict={test_specificity_value:spec_v_test}) )
 
 
 						saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
@@ -447,14 +460,14 @@ def main(_):
 
 			# Perform the final test set metric
 			if sv.is_chief:
-					
+
 				dice_v_test = 0.0
 				loss_v_test = 0.0
 
-				for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), 
+				for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size),
 					desc="Calculating metrics on test dataset", leave=False):
-					x_test = imgs_test[idx:(idx+batch_size)] 
-					y_test = msks_test[idx:(idx+batch_size)] 
+					x_test = imgs_test[idx:(idx+batch_size)]
+					y_test = msks_test[idx:(idx+batch_size)]
 
 					feed_dict = {imgs: x_test, msks: y_test}
 
@@ -468,15 +481,15 @@ def main(_):
 					.format((step // num_batches), FLAGS.epochs,
 						loss_v_test, dice_v_test))
 
-				sv.summary_computed(sess, sess.run(test_loss_summary, 
-					feed_dict={test_loss_value:loss_v_test}) ) 
-				sv.summary_computed(sess, sess.run(test_dice_summary, 
-					feed_dict={test_dice_value:dice_v_test}) )  
+				sv.summary_computed(sess, sess.run(test_loss_summary,
+					feed_dict={test_loss_value:loss_v_test}) )
+				sv.summary_computed(sess, sess.run(test_dice_summary,
+					feed_dict={test_dice_value:dice_v_test}) )
 
 
 				saver.save(sess, CHECKPOINT_DIRECTORY + "/last_good_model.cpkt")
 
-				
+
 			if sv.is_chief:
 				export_model(sess, imgs, preds)  # Save the final model as protbuf for TensorFlow Serving
 
@@ -500,18 +513,18 @@ def export_model(sess, input_tensor, output_tensor):
 	# To view pb model file:  saved_model_cli show --dir saved_model --all
 	sess.graph._unsafe_unfinalize()
 	import shutil
-	MODEL_DIR = "./saved_model"
+	MODEL_DIR = CHECKPOINT_DIRECTORY + "saved_model"
 	shutil.rmtree(MODEL_DIR, ignore_errors=True)  # Remove old saved model
 	builder = tf.saved_model.builder.SavedModelBuilder(MODEL_DIR)
 
 	builder.add_meta_graph_and_variables(sess,
 		[tf.saved_model.tag_constants.SERVING],
-		signature_def_map = {"intel_unet_brats_model": 
+		signature_def_map = {"intel_unet_brats_model":
 		tf.saved_model.signature_def_utils.predict_signature_def(
-			inputs= {"image": input_tensor}, 
+			inputs= {"image": input_tensor},
 			outputs= {"prediction": output_tensor})},
 		clear_devices=True)
-	
+
 	builder.save()
 
 	print("Saved final model to directory: {}".format(MODEL_DIR))
@@ -520,4 +533,3 @@ def export_model(sess, input_tensor, output_tensor):
 
 if __name__ == "__main__":
 	tf.app.run()
-
