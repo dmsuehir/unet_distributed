@@ -11,18 +11,18 @@ Usage:  python test_dist.py --ip=10.100.68.816 --is_sync=0
 """
 import settings_dist
 
-ps_hosts = settings_dist.PS_HOSTS
-ps_ports = settings_dist.PS_PORTS
-worker_hosts = settings_dist.WORKER_HOSTS
-worker_ports = settings_dist.WORKER_PORTS
+#ps_hosts = settings_dist.PS_HOSTS
+#ps_ports = settings_dist.PS_PORTS
+#worker_hosts = settings_dist.WORKER_HOSTS
+#worker_ports = settings_dist.WORKER_PORTS
 
-ps_list = ["{}:{}".format(x, y) for x, y in zip(ps_hosts, ps_ports)]
-worker_list = [
-	"{}:{}".format(x, y) for x, y in zip(worker_hosts, worker_ports)
-]
+#ps_list = ["{}:{}".format(x, y) for x, y in zip(ps_hosts, ps_ports)]
+#worker_list = [
+#	"{}:{}".format(x, y) for x, y in zip(worker_hosts, worker_ports)
+#]
 print("Distributed TensorFlow training")
-print("Parameter server nodes are: {}".format(ps_list))
-print("Worker nodes are {}".format(worker_list))
+#print("Parameter server nodes are: {}".format(ps_list))
+#print("Worker nodes are {}".format(worker_list))
 
 CHECKPOINT_DIRECTORY = settings_dist.CHECKPOINT_DIRECTORY
 
@@ -84,23 +84,51 @@ tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
 tf.app.flags.DEFINE_boolean("use_upsampling", settings_dist.USE_UPSAMPLING,
 							"True = Use upsampling; False = Use transposed convolution")
 
+flags.DEFINE_string("ps_hosts", "localhost:2222",
+                    "Comma-separated list of hostname:port pairs")
+flags.DEFINE_string("worker_hosts", "localhost:2223,localhost:2224",
+                    "Comma-separated list of hostname:port pairs")
+flags.DEFINE_string("master_hosts", "localhost:2222",
+                    "Comma-separated list of hostname:port pairs")
+flags.DEFINE_string("job_name", None, "job name: worker or ps")
+flags.DEFINE_integer("task_id", None,
+                     "Worker task index, should be >= 0. task_id=0 is "
+                     "the master worker task the performs the variable "
+                     "initialization ")
+
+ps_list = ps_hosts
+worker_list = master_hosts + worker_hosts
+task_index = task_id
+
+# since we moved master to the front of the worker list, fix the worker task index
+if job_name == "worker":
+  task_index = task_index + 1
+
+# change job name of master to be a worker (it's worker 0)
+if job_name == "master":
+  job_name = "worker"
+
+print("Parameter server nodes are: {}".format(ps_list))
+print("Worker nodes are {}".format(worker_list))
+print("Job name: {}".format(job_name))
+print("Task index: {}".format(task_index))
 
 # Hyperparameters
 batch_size = FLAGS.batch_size
 
 time_left_to_train = 0  # Number of seconds left in training
 
-if (FLAGS.ip in ps_hosts):
-	job_name = "ps"
-	task_index = ps_hosts.index(FLAGS.ip)
-elif (FLAGS.ip in worker_hosts):
-	job_name = "worker"
-	task_index = worker_hosts.index(FLAGS.ip)
-else:
-	print(
-		"Error: IP {} not found in the worker or ps node list.\nUse --ip= to specify which machine this is.".
-		format(FLAGS.ip))
-	exit()
+#if (FLAGS.ip in ps_hosts):
+#	job_name = "ps"
+#	task_index = ps_hosts.index(FLAGS.ip)
+#elif (FLAGS.ip in worker_hosts):
+#	job_name = "worker"
+#	task_index = worker_hosts.index(FLAGS.ip)
+#else:
+#	print(
+#		"Error: IP {} not found in the worker or ps node list.\nUse --ip= to specify which machine this is.".
+#		format(FLAGS.ip))
+#	exit()
 
 
 def create_done_queue(i):
