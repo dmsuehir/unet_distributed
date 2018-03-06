@@ -1,5 +1,8 @@
 FROM elsonrodriguez/mytfserver:1.6
 
+ADD requirements.txt /src/deps/requirements.txt
+RUN pip install -r /src/deps/requirements.txt
+
 ADD test_dist.py /opt/test_dist.py
 ADD settings_dist.py /opt/settings_dist.py
 ADD preprocess.py /opt/preprocess.py
