@@ -48,8 +48,11 @@ num_inter_op_threads = settings_dist.NUM_INTER_THREADS
 num_intra_op_threads = settings_dist.NUM_INTRA_THREADS  #multiprocessing.cpu_count() // 2 # Use half the CPU cores
 
 # Unset proxy env variable to avoid gRPC errors
-del os.environ["http_proxy"]
-del os.environ["https_proxy"]
+try:
+  del os.environ["http_proxy"]
+  del os.environ["https_proxy"]
+except:
+  pass
 
 # You can turn on the gRPC messages by setting the environment variables below
 #os.environ["GRPC_VERBOSITY"]="DEBUG"
@@ -84,21 +87,22 @@ tf.app.flags.DEFINE_integer("epochs", settings_dist.EPOCHS,
 tf.app.flags.DEFINE_boolean("use_upsampling", settings_dist.USE_UPSAMPLING,
 							"True = Use upsampling; False = Use transposed convolution")
 
-flags.DEFINE_string("ps_hosts", "localhost:2222",
+tf.app.flags.DEFINE_string("ps_hosts", "localhost:2222",
                     "Comma-separated list of hostname:port pairs")
-flags.DEFINE_string("worker_hosts", "localhost:2223,localhost:2224",
+tf.app.flags.DEFINE_string("worker_hosts", "localhost:2223,localhost:2224",
                     "Comma-separated list of hostname:port pairs")
-flags.DEFINE_string("master_hosts", "localhost:2222",
+tf.app.flags.DEFINE_string("master_hosts", "localhost:2222",
                     "Comma-separated list of hostname:port pairs")
-flags.DEFINE_string("job_name", None, "job name: worker or ps")
-flags.DEFINE_integer("task_id", None,
+tf.app.flags.DEFINE_string("job_name", "worker", "job name: worker or ps")
+tf.app.flags.DEFINE_integer("task_id", 0,
                      "Worker task index, should be >= 0. task_id=0 is "
                      "the master worker task the performs the variable "
                      "initialization ")
 
-ps_list = ps_hosts
-worker_list = master_hosts + worker_hosts
-task_index = task_id
+ps_list = ps_hosts = FLAGS.ps_hosts.split(",")
+worker_list = worker_hosts = FLAGS.master_hosts.split(",") + FLAGS.worker_hosts.split(",")
+task_index = FLAGS.task_id
+job_name = FLAGS.job_name
 
 # since we moved master to the front of the worker list, fix the worker task index
 if job_name == "worker":
