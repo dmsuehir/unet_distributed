@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # These are the only things you need to change.
 # Just replace the IP addresses with whatever machines you want to distribute over
 # Then run this script on each of those machines.
@@ -11,18 +12,18 @@ Usage:  python test_dist.py --ip=10.100.68.816 --is_sync=0
 """
 import settings_dist
 
-ps_hosts = settings_dist.PS_HOSTS
-ps_ports = settings_dist.PS_PORTS
-worker_hosts = settings_dist.WORKER_HOSTS
-worker_ports = settings_dist.WORKER_PORTS
+#ps_hosts = settings_dist.PS_HOSTS
+#ps_ports = settings_dist.PS_PORTS
+#worker_hosts = settings_dist.WORKER_HOSTS
+#worker_ports = settings_dist.WORKER_PORTS
 
-ps_list = ["{}:{}".format(x, y) for x, y in zip(ps_hosts, ps_ports)]
-worker_list = [
-	"{}:{}".format(x, y) for x, y in zip(worker_hosts, worker_ports)
-]
+#ps_list = ["{}:{}".format(x, y) for x, y in zip(ps_hosts, ps_ports)]
+#worker_list = [
+#	"{}:{}".format(x, y) for x, y in zip(worker_hosts, worker_ports)
+#]
 print("Distributed TensorFlow training")
-print("Parameter server nodes are: {}".format(ps_list))
-print("Worker nodes are {}".format(worker_list))
+#print("Parameter server nodes are: {}".format(ps_list))
+#print("Worker nodes are {}".format(worker_list))
 
 CHECKPOINT_DIRECTORY = settings_dist.CHECKPOINT_DIRECTORY
 
@@ -32,6 +33,7 @@ import numpy as np
 import tensorflow as tf
 import os
 import socket
+import json
 
 # Fancy progress bar
 from tqdm import tqdm
@@ -48,8 +50,11 @@ num_inter_op_threads = settings_dist.NUM_INTER_THREADS
 num_intra_op_threads = settings_dist.NUM_INTRA_THREADS  #multiprocessing.cpu_count() // 2 # Use half the CPU cores
 
 # Unset proxy env variable to avoid gRPC errors
-del os.environ["http_proxy"]
-del os.environ["https_proxy"]
+try:
+  del os.environ["http_proxy"]
+  del os.environ["https_proxy"]
+except:
+  pass
 
 # You can turn on the gRPC messages by setting the environment variables below
 #os.environ["GRPC_VERBOSITY"]="DEBUG"
@@ -90,17 +95,37 @@ batch_size = FLAGS.batch_size
 
 time_left_to_train = 0  # Number of seconds left in training
 
-if (FLAGS.ip in ps_hosts):
-	job_name = "ps"
-	task_index = ps_hosts.index(FLAGS.ip)
-elif (FLAGS.ip in worker_hosts):
-	job_name = "worker"
-	task_index = worker_hosts.index(FLAGS.ip)
-else:
-	print(
-		"Error: IP {} not found in the worker or ps node list.\nUse --ip= to specify which machine this is.".
-		format(FLAGS.ip))
-	exit()
+# Get Cluster info from the TF_CONFIG environment variable
+tf_config_json = os.environ.get("TF_CONFIG", "{}")
+tf_config = json.loads(tf_config_json)
+print("tf_config: {}".format(tf_config))
+
+task = tf_config.get("task", "{}")
+task_index = task.get("index", "{}")
+job_name = task.get("type", "{}")
+cluster = tf_config.get("cluster", "{}")
+
+print("cluster: {}".format(cluster))
+
+worker_list = worker_hosts = cluster.get("worker", "{}")
+ps_list = ps_hosts = cluster.get("ps", "{}")
+
+print("Parameter server nodes are: {}".format(ps_list))
+print("Worker nodes are {}".format(worker_list))
+print("Job name: {}".format(job_name))
+print("Task index: {}".format(task_index))
+
+#if (FLAGS.ip in ps_hosts):
+#	job_name = "ps"
+#	task_index = ps_hosts.index(FLAGS.ip)
+#elif (FLAGS.ip in worker_hosts):
+#	job_name = "worker"
+#	task_index = worker_hosts.index(FLAGS.ip)
+#else:
+#	print(
+#		"Error: IP {} not found in the worker or ps node list.\nUse --ip= to specify which machine this is.".
+#		format(FLAGS.ip))
+#	exit()
 
 
 def create_done_queue(i):
