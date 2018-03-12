@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # These are the only things you need to change.
 # Just replace the IP addresses with whatever machines you want to distribute over
 # Then run this script on each of those machines.
@@ -10,6 +12,7 @@ Usage:  python test_dist.py --ip=10.100.68.816 --is_sync=0
 		then we"ll default to the current machine"s IP (which is usually correct unless you use OPA)
 """
 import settings_dist
+import sys
 
 #ps_hosts = settings_dist.PS_HOSTS
 #ps_ports = settings_dist.PS_PORTS
@@ -99,6 +102,40 @@ tf.app.flags.DEFINE_integer("task_id", 0,
                      "the master worker task the performs the variable "
                      "initialization ")
 
+# -------
+
+tf.app.flags.DEFINE_string("data_dir", "/tmp/mnist-data",
+                    "Directory for storing mnist data")
+tf.app.flags.DEFINE_string("train_dir", "/tmp/mnist-train",
+                    "Directory for training output")
+tf.app.flags.DEFINE_boolean("download", False,
+                     "Only perform downloading of data; Do not proceed to "
+                     "session preparation, model definition or training")
+tf.app.flags.DEFINE_integer("num_gpus", 0, "Total number of gpus for each machine."
+                     "If you don't use GPU, please set it to '0'")
+tf.app.flags.DEFINE_integer("replicas_to_aggregate", None,
+                     "Number of replicas to aggregate before parameter update"
+                     "is applied (For sync_replicas mode only; default: "
+                     "num_workers)")
+tf.app.flags.DEFINE_integer("hidden_units", 100,
+                     "Number of units in the hidden layer of the NN")
+tf.app.flags.DEFINE_integer("train_steps", 200,
+                     "Number of (global) training steps to perform")
+tf.app.flags.DEFINE_boolean(
+    "sync_replicas", False,
+    "Use the sync_replicas (synchronized replicas) mode, "
+    "wherein the parameter updates from workers are aggregated "
+    "before applied to avoid stale gradients")
+tf.app.flags.DEFINE_boolean(
+    "existing_servers", False, "Whether servers already exists. If True, "
+    "will use the worker hosts via their GRPC URLs (one client process "
+    "per worker host). Otherwise, will create an in-process TensorFlow "
+    "server.")
+
+# -------
+
+print("Parse flags")
+FLAGS(sys.argv)
 ps_list = ps_hosts = FLAGS.ps_hosts.split(",")
 worker_list = worker_hosts = FLAGS.master_hosts.split(",") + FLAGS.worker_hosts.split(",")
 task_index = FLAGS.task_id

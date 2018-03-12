@@ -1,4 +1,3 @@
 tqdm
 SimpleITK
 opencv-python
-h5py
