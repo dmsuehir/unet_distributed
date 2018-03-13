@@ -2,7 +2,7 @@ FROM elsonrodriguez/mytfserver:1.6
 
 ADD requirements.txt /src/deps/requirements.txt
 RUN pip install -r /src/deps/requirements.txt
-RUN apt-get update && apt-get install -y libsm6 libxext6 libxrender-dev
+RUN apt-get update && apt-get install -y libsm6 libxext6 libxrender-dev libgtk2.0-dev
 
 ADD test_dist.py /opt/test_dist.py
 ADD settings_dist.py /opt/settings_dist.py

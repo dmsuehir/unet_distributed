@@ -10,6 +10,7 @@ Usage:  python test_dist.py --ip=10.100.68.816 --is_sync=0
 		then we"ll default to the current machine"s IP (which is usually correct unless you use OPA)
 """
 import settings_dist
+import sys
 
 #ps_hosts = settings_dist.PS_HOSTS
 #ps_ports = settings_dist.PS_PORTS
@@ -96,6 +97,9 @@ tf.app.flags.DEFINE_integer("task_id", 0,
                      "the master worker task the performs the variable "
                      "initialization ")
 
+
+print ("Parse flags")
+FLAGS(sys.argv)
 ps_list = ps_hosts = FLAGS.ps_hosts.split(",")
 worker_list = worker_hosts = FLAGS.worker_hosts.split(",")
 task_index = FLAGS.task_id
