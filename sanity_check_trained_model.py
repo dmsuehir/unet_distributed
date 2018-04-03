@@ -13,8 +13,9 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Get rid of the AVX, SSE warnings
 
 batch_size = 128
-export_dir=settings_dist.CHECKPOINT_DIRECTORY + "saved_model/"
+export_dir = settings_dist.CHECKPOINT_DIRECTORY + "saved_model/"
 print("Loading trained TensorFlow model from directory {}".format(export_dir))
+
 
 def load_test_data():
 
@@ -22,17 +23,22 @@ def load_test_data():
     print('-'*38)
     print('Loading and preprocessing test data...')
     print('-'*38)
-    imgs_test, msks_test = load_data(settings_dist.OUT_PATH,"_test")
-    imgs_test, msks_test = update_channels(imgs_test, msks_test, settings_dist.IN_CHANNEL_NO, settings_dist.OUT_CHANNEL_NO, settings_dist.MODE)
+    imgs_test, msks_test = load_data(settings_dist.OUT_PATH, "_test")
+    imgs_test, msks_test = update_channels(imgs_test, msks_test,
+                                           settings_dist.IN_CHANNEL_NO,
+                                           settings_dist.OUT_CHANNEL_NO,
+                                           settings_dist.MODE)
 
     return imgs_test, msks_test
 
-def calc_dice(a,b):
+
+def calc_dice(a, b):
 
     a1 = np.ndarray.flatten(a)
     b1 = np.ndarray.flatten(b)
 
     return 2.0*(np.sum(a1*b1)+1.0)/(np.sum(a1+b1)+1.0)
+
 
 with tf.Session(graph=tf.Graph()) as sess:
     tf.saved_model.loader.load(sess, ["serve"], export_dir)
@@ -45,7 +51,8 @@ with tf.Session(graph=tf.Graph()) as sess:
     dice = 0.0
     i = 0
 
-    for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size), desc="Calculating metrics on test dataset", leave=False):
+    for idx in tqdm(range(0, imgs_test.shape[0] - batch_size, batch_size),
+                    desc="Calculating metrics on test dataset", leave=False):
         x_test = imgs_test[idx:(idx+batch_size)]
         y_test = msks_test[idx:(idx+batch_size)]
 
