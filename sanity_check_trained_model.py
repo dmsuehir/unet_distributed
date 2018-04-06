@@ -20,9 +20,9 @@ print("Loading trained TensorFlow model from directory {}".format(export_dir))
 def load_test_data():
 
     # Load test data
-    print('-'*38)
-    print('Loading and preprocessing test data...')
-    print('-'*38)
+    tf.logging.info('-'*38)
+    tf.logging.info('Loading and preprocessing test data...')
+    tf.logging.info('-'*38)
     imgs_test, msks_test = load_data(settings_dist.OUT_PATH, "_test")
     imgs_test, msks_test = update_channels(imgs_test, msks_test,
                                            settings_dist.IN_CHANNEL_NO,
@@ -62,4 +62,4 @@ with tf.Session(graph=tf.Graph()) as sess:
         dice += calc_dice(y_test, p)
         i += 1
 
-print("Average Dice for Test Set = {}".format(dice/i))
+tf.logging.info("Average Dice for Test Set = {}".format(dice/i))

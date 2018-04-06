@@ -4,13 +4,16 @@
 # distribute over
 # Then run this script on each of those machines.
 
-import settings_dist
-
-import numpy as np
-import tensorflow as tf
-import os
-import socket
 import json
+import logging
+import multiprocessing
+import numpy as np
+import os
+import settings_dist
+import signal
+import socket
+import subprocess
+import tensorflow as tf
 import time
 
 # Fancy progress bar
@@ -21,16 +24,13 @@ from tqdm import trange
 from model import define_model, dice_coef_loss, dice_coef,\
     sensitivity, specificity
 from data import load_all_data, get_epoch
-import multiprocessing
-import subprocess
-import signal
 
-print("Distributed TensorFlow training")
 
 CHECKPOINT_DIRECTORY = settings_dist.CHECKPOINT_DIRECTORY
 
 num_inter_op_threads = settings_dist.NUM_INTER_THREADS
 num_intra_op_threads = settings_dist.NUM_INTRA_THREADS
+
 # multiprocessing.cpu_count() // 2 # Use half the CPU cores
 
 # Unset proxy env variable to avoid gRPC errors
@@ -76,7 +76,6 @@ tf.app.flags.DEFINE_boolean("use_upsampling", settings_dist.USE_UPSAMPLING,
                             "True = Use upsampling; False = Use transposed "
                             "convolution")
 
-
 # Hyperparameters
 batch_size = FLAGS.batch_size
 
@@ -120,6 +119,7 @@ def create_done_queues():
 
 
 def main(_):
+    tf.logging.info("Distributed TensorFlow training")
 
     config = tf.ConfigProto(
         inter_op_parallelism_threads=num_inter_op_threads,
@@ -138,6 +138,7 @@ def main(_):
         num_tasks=len(ps_hosts), load_fn=tf.contrib.training.byte_size_load_fn)
 
     if job_name == "ps":
+        tf.logging.info("I'm the parameter server")
 
         with tf.device(
                 tf.train.replica_device_setter(
@@ -146,30 +147,34 @@ def main(_):
                     ps_strategy=greedy,
                     cluster=cluster)):
 
+            tf.logging.info("tf.Session")
             sess = tf.Session(server.target, config=config)
+            tf.logging.info("create done queue")
             queue = create_done_queue(task_index)
 
-            print("*" * 30)
-            print("\nParameter server #{} on {}.\n\nWaiting on workers to "
-                  "finish.\n\nPress CTRL-\\ to terminate early.\n".
-                  format(task_index, ps_hosts[task_index]))
-            print("*" * 30)
+            tf.logging.info("*" * 30)
+            tf.logging.info("\nParameter server #{} on {}.\n\nWaiting on "
+                            "workers to finish.\n\nPress CTRL-\\ to terminate "
+                            "early.\n".format(task_index,
+                                              ps_hosts[task_index]))
+            tf.logging.info("*" * 30)
 
             # wait until all workers are done
             for i in range(len(worker_hosts)):
                 sess.run(queue.dequeue())
-                print("Worker #{} reports job finished.".format(i))
+                tf.logging.info("Worker #{} reports job finished.".format(i))
 
-            print("Parameter server #{} is quitting".format(task_index))
-            print("Training complete.")
+            tf.logging.info("Parameter server #{} is quitting".
+                            format(task_index))
+            tf.logging.info("Training complete.")
 
     elif job_name == "worker":
 
         if is_chief:
-            print("I am chief worker {} with task #{}".format(
+            tf.logging.info("I am chief worker {} with task #{}".format(
                 worker_hosts[task_index], task_index))
         else:
-            print("I am worker {} with task #{}".format(
+            tf.logging.info("I am worker {} with task #{}".format(
                 worker_hosts[task_index], task_index))
 
         if len(ps_list) > 0:
@@ -208,7 +213,7 @@ def main(_):
                 imgs, FLAGS.use_upsampling, settings_dist.OUT_CHANNEL_NO
             )
 
-            print('Model defined')
+            tf.logging.info('Model defined')
 
             loss_value = dice_coef_loss(msks, preds)
             dice_value = dice_coef(msks, preds)
@@ -293,10 +298,10 @@ def main(_):
             tf.summary.image("images", imgs,
                              max_outputs=settings_dist.TENSORBOARD_IMAGES)
 
-            print("Loading epoch")
+            tf.logging.info("Loading epoch")
             epoch = get_epoch(batch_size, imgs_train, msks_train)
             num_batches = len(epoch)
-            print("Loaded")
+            tf.logging.info("Loaded")
 
             # Print the percent steps complete to TensorBoard
             #   so that we know how much of the training remains.
@@ -443,12 +448,13 @@ def main(_):
                             sens_v_test += st_v / (test_length // batch_size)
                             spec_v_test += sp_v / (test_length // batch_size)
 
-                        print("\nEpoch {} of {}: TEST DATASET\nloss = {:.4f}\n"
-                              "Dice = {:.4f}\nSensitivity = {:.4f}\n"
-                              "Specificity = {:.4f}".
-                              format((step // num_batches), FLAGS.epochs,
-                                     loss_v_test, dice_v_test, sens_v_test,
-                                     spec_v_test))
+                        tf.logging.info("\nEpoch {} of {}: TEST DATASET\nloss"
+                                        " = {:.4f}\nDice = {:.4f}\nSensitivity"
+                                        " = {:.4f}\nSpecificity = {:.4f}".
+                                        format((step // num_batches),
+                                               FLAGS.epochs, loss_v_test,
+                                               dice_v_test, sens_v_test,
+                                               spec_v_test))
 
                         # Add our test summary metrics to TensorBoard
                         sv.summary_computed(sess, sess.run(
@@ -471,7 +477,7 @@ def main(_):
                 # Shuffle every epoch
                 if (batch_idx == 0) and (step > num_batches):
 
-                    print("Shuffling epoch")
+                    tf.logging.info("Shuffling epoch")
                     epoch = get_epoch(batch_size, imgs_train, msks_train)
 
                 # Print the loss and dice metric in the progress bar.
@@ -501,10 +507,10 @@ def main(_):
                     dice_v_test += d_v / (test_length // batch_size)
                     loss_v_test += l_v / (test_length // batch_size)
 
-                print("\nEpoch {} of {}: Test loss = {:.4f}, "
-                      "Test Dice = {:.4f}".format((step // num_batches),
-                                                  FLAGS.epochs, loss_v_test,
-                                                  dice_v_test))
+                tf.logging.info("\nEpoch {} of {}: Test loss = {:.4f}, "
+                                "Test Dice = {:.4f}".format(
+                    (step // num_batches), FLAGS.epochs,
+                    loss_v_test, dice_v_test))
 
                 sv.summary_computed(sess, sess.run(
                     test_loss_summary,
@@ -530,11 +536,11 @@ def main(_):
                     op
                 )  # Send the "work completed" signal to the parameter server
 
-        print("\n\nFinished work on this node.")
+        tf.logging.info("\n\nFinished work on this node.")
         time.sleep(3)  # Sleep for 3 seconds then exit
 
         sv.request_stop()
-        # sv.stop()
+        sv.stop()
 
 
 def export_model(sess, input_tensor, output_tensor):
@@ -557,10 +563,11 @@ def export_model(sess, input_tensor, output_tensor):
 
     builder.save()
 
-    print("Saved final model to directory: {}".format(MODEL_DIR))
-    print("You can check the model from the command line by running:")
-    print("saved_model_cli show --dir {} --all".format(MODEL_DIR))
+    tf.logging.info("Saved final model to directory: {}".format(MODEL_DIR))
+    tf.logging.info("You can check the model from the command line by running:")
+    tf.logging.info("saved_model_cli show --dir {} --all".format(MODEL_DIR))
 
 
 if __name__ == "__main__":
+    tf.logging.set_verbosity(tf.logging.INFO)
     tf.app.run()

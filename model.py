@@ -158,7 +158,7 @@ def define_model(input_tensor, use_upsampling=False, n_cl_out=1,
     # loss=dice_coef_loss, metrics=[dice_coef])
 
     if print_summary:
-        print(model.summary())
+        tf.logging.info(model.summary())
 
     return conv10
 

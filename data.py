@@ -1,14 +1,14 @@
 from preprocess import load_data, update_channels
 import settings_dist
 import numpy as np
-
+import tensorflow as tf
 
 def load_all_data():
 
     # Load train data
-    print('-'*42)
-    print('Loading and preprocessing training data...')
-    print('-'*42)
+    tf.logging.info('-'*42)
+    tf.logging.info('Loading and preprocessing training data...')
+    tf.logging.info('-'*42)
     imgs_train, msks_train = load_data(settings_dist.OUT_PATH, "_train")
     imgs_train, msks_train = update_channels(imgs_train, msks_train,
                                              settings_dist.IN_CHANNEL_NO,
@@ -16,19 +16,19 @@ def load_all_data():
                                              settings_dist.MODE)
 
     # Load test data
-    print('-'*38)
-    print('Loading and preprocessing test data...')
-    print('-'*38)
+    tf.logging.info('-'*38)
+    tf.logging.info('Loading and preprocessing test data...')
+    tf.logging.info('-'*38)
     imgs_test, msks_test = load_data(settings_dist.OUT_PATH, "_test")
     imgs_test, msks_test = update_channels(imgs_test, msks_test,
                                            settings_dist.IN_CHANNEL_NO,
                                            settings_dist.OUT_CHANNEL_NO,
                                            settings_dist.MODE)
 
-    print("Training images shape: {}".format(imgs_train.shape))
-    print("Training masks shape:  {}".format(msks_train.shape))
-    print("Testing images shape:  {}".format(imgs_test.shape))
-    print("Testing masks shape:   {}".format(msks_test.shape))
+    tf.logging.info("Training images shape: {}".format(imgs_train.shape))
+    tf.logging.info("Training masks shape:  {}".format(msks_train.shape))
+    tf.logging.info("Testing images shape:  {}".format(imgs_test.shape))
+    tf.logging.info("Testing masks shape:   {}".format(msks_test.shape))
 
     return imgs_train, msks_train, imgs_test, msks_test
 

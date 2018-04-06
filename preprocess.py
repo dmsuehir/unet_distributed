@@ -8,6 +8,7 @@ import settings_dist
 import cv2
 import random
 import time
+import tensorflow as tf
 
 
 def get_data_from_dir(data_dir):
@@ -15,7 +16,7 @@ def get_data_from_dir(data_dir):
     From a given folder (in the Brats2016 folder organization),
     returns the different volumes corresponding to t1, t1c, f
     """
-    print("Loading from", data_dir)
+    tf.logging.info("Loading from", data_dir)
     img_path = os.path.dirname(data_dir)
     img_dir_fn = os.path.basename(data_dir)
     t1_fn = ""
@@ -58,35 +59,35 @@ def get_data_from_dir(data_dir):
     if len(t1c_fn) > 0 and len(t1_fn) and len(flair_fn) > 0 and len(
             t2_fn) > 0 and len(truth_fn) > 0:
         isComplete = True
-        print("  T1 :", os.path.basename(t1_fn))
-        print("  T1c:", os.path.basename(t1c_fn))
-        print("  FLr:", os.path.basename(flair_fn))
-        print("  T2 :", os.path.basename(t2_fn))
-        print("  Tru:", os.path.basename(truth_fn))
+        tf.logging.info("  T1 :", os.path.basename(t1_fn))
+        tf.logging.info("  T1c:", os.path.basename(t1c_fn))
+        tf.logging.info("  FLr:", os.path.basename(flair_fn))
+        tf.logging.info("  T2 :", os.path.basename(t2_fn))
+        tf.logging.info("  Tru:", os.path.basename(truth_fn))
 
     # Read data
     try:
         t1 = sitk.ReadImage(t1_fn)
     except Exception as e:
-        print(e)
+        tf.logging.info(e)
         t1 = sitk.Image()
 
     try:
         t1c = sitk.ReadImage(t1c_fn)
     except Exception as e:
-        print(e)
+        tf.logging.info(e)
         t1c = sitk.Image()
 
     try:
         fl = sitk.ReadImage(flair_fn)
     except Exception as e:
-        print(e)
+        tf.logging.info(e)
         fl = sitk.Image()
 
     try:
         t2 = sitk.ReadImage(t2_fn)
     except Exception as e:
-        print(e)
+        tf.logging.info(e)
         t2 = sitk.Image()
 
     try:
@@ -95,7 +96,7 @@ def get_data_from_dir(data_dir):
         msk.SetDirection(t1.GetDirection())
         msk.SetSpacing(t1.GetSpacing())
     except Exception as e:
-        print(e)
+        tf.logging.info(e)
         msk = sitk.Image()
 
     return (t1, t1c, fl, t2, msk, isComplete)
@@ -120,7 +121,7 @@ def preprocessSITK(img, img_rows, img_cols, resize_factor=1):
 
     if not resize_factor == 1:
         pr_img = sitk.Shrink(pr_img, [resize_factor, resize_factor, 1])
-        print("Resizing to", pr_img.GetSize())
+        tf.logging.info("Resizing to", pr_img.GetSize())
 
     return pr_img
 
@@ -173,9 +174,9 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
     te_msks = np.ndarray(te_msk_shape, dtype=np.float)
 
     i = 0
-    print('-' * 30)
-    print('Creating training images...')
-    print('-' * 30)
+    tf.logging.info('-' * 30)
+    tf.logging.info('Creating training images...')
+    tf.logging.info('-' * 30)
     tr_i = 0
     te_i = 0
 
@@ -196,7 +197,7 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
         if i % 5 == 0:
             is_tr = False
 
-        print(i, "Train:", is_tr, "", end='')
+        tf.logging.info(i, "Train:", is_tr, "", end='')
         (t1p, t1, fl, t2, msk, isComplete) = get_data_from_dir(data_dir)
 
         # preprocess:crop and rescale
@@ -235,7 +236,7 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
             # is slice in training cases, but not used from training,or testing
             # in the first state
             if n_slice % slice_by == 0:
-                print('.', sep='', end='')
+                tf.logging.info('.', sep='', end='')
                 is_used = True
             else:
                 is_used = False
@@ -264,7 +265,7 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
                     curr_sl_te += 1
 
         # new line needed for the ... simple progress bar
-        print('\n')
+        tf.logging.info('\n')
 
         if is_tr:
             tr_i += 1
@@ -273,7 +274,7 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
             te_i += 1
             slicesTe += maxSlice - minSlice + 1
 
-    print('Done loading ', slicesTr, slicesTe, curr_sl_tr, curr_sl_te)
+    tf.logging.info('Done loading ', slicesTr, slicesTe, curr_sl_tr, curr_sl_te)
 
     # just write the actually added slices
     tr_imgs = tr_imgs[0:curr_sl_tr, :, :, :]
@@ -288,9 +289,9 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
     np.save(os.path.join(out_path, 'imgs_test.npy'), te_imgs)
     np.save(os.path.join(out_path, 'msks_test.npy'), te_msks)
 
-    print('Saving to .npy files done.')
-    print('Train ', curr_sl_tr)
-    print('Test  ', curr_sl_te)
+    tf.logging.info('Saving to .npy files done.')
+    tf.logging.info('Train ', curr_sl_tr)
+    tf.logging.info('Test  ', curr_sl_te)
 
 
 def load_data(data_path, prefix="_train"):
@@ -394,4 +395,4 @@ if __name__ == '__main__':
 
     time_end = time.time()
 
-    print("Done in", time_end - time_start)
+    tf.logging.info("Done in", time_end - time_start)
