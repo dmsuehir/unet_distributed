@@ -10,16 +10,24 @@ def load_all_data():
     tf.logging.info('Loading and preprocessing training data...')
     tf.logging.info('-'*42)
     imgs_train, msks_train = load_data(settings_dist.OUT_PATH, "_train")
-    imgs_train, msks_train = update_channels(imgs_train, msks_train,
-                                             settings_dist.IN_CHANNEL_NO,
-                                             settings_dist.OUT_CHANNEL_NO,
-                                             settings_dist.MODE)
 
     # Load test data
     tf.logging.info('-'*38)
     tf.logging.info('Loading and preprocessing test data...')
     tf.logging.info('-'*38)
     imgs_test, msks_test = load_data(settings_dist.OUT_PATH, "_test")
+
+    # # Dina: Temporarily use random data
+    # imgs_train = np.random.rand(5000, 128, 128, 1)
+    # msks_train = np.random.rand(5000, 128, 128, 1)
+    # imgs_test = np.random.rand(1000, 128, 128, 1)
+    # msks_test = np.random.rand(1000, 128, 128, 1)
+
+    # Update channels
+    imgs_train, msks_train = update_channels(imgs_train, msks_train,
+                                             settings_dist.IN_CHANNEL_NO,
+                                             settings_dist.OUT_CHANNEL_NO,
+                                             settings_dist.MODE)
     imgs_test, msks_test = update_channels(imgs_test, msks_test,
                                            settings_dist.IN_CHANNEL_NO,
                                            settings_dist.OUT_CHANNEL_NO,

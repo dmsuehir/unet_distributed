@@ -295,6 +295,14 @@ def create_datasets_4(img_path, img_rows, img_cols, img_slices, slice_by=5,
 
 
 def load_data(data_path, prefix="_train"):
+    # # Dina: Resize dataset
+    # resize = 1000 if prefix == "_train" else 200
+    #
+    # imgs_train = np.load(os.path.join(data_path, 'imgs' + prefix + '.npy'),
+    #                      mmap_mode='r', allow_pickle=False)[0:resize]
+    # msks_train = np.load(os.path.join(data_path, 'msks' + prefix + '.npy'),
+    #                      mmap_mode='r', allow_pickle=False)[0:resize]
+
     imgs_train = np.load(os.path.join(data_path, 'imgs' + prefix + '.npy'),
                          mmap_mode='r', allow_pickle=False)
     msks_train = np.load(os.path.join(data_path, 'msks' + prefix + '.npy'),
