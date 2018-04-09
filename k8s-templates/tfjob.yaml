@@ -1,0 +1,66 @@
+apiVersion: "kubeflow.org/v1alpha1"
+kind: TFJob
+metadata:
+  name: $app-$run
+  labels:
+    mlt-app-name: $app
+spec:
+  replicaSpecs:
+    - replicas: $num_ps
+      tfReplicaType: PS
+      template:
+        spec:
+          containers:
+            - image: $image
+              name: tensorflow
+              resources:
+                limits:
+                  memory: "10G"
+                requests:
+                  memory: "10G"
+          restartPolicy: OnFailure
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - gke-dls-us-n1-standard-4-1ba3a893-wvlw
+    - replicas: $num_workers
+      tfReplicaType: WORKER
+      template:
+        spec:
+          containers:
+            - image: $image
+              name: tensorflow
+              volumeMounts:
+              - mountPath: /tmp/data
+                name: unet-data
+              resources:
+                limits:
+                  memory: "30G"
+                requests:
+                  memory: "30G"
+          restartPolicy: Never
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - gke-dls-us-n1-highmem-8-c8f32d4f-l2cj
+                    - gke-dls-us-n1-highmem-8-c8f32d4f-vj8b
+#                    - gke-dls-us-n1-standard-4-1ba3a893-516b
+#                    - gke-dls-us-n1-standard-4-1ba3a893-gvr1
+          volumes:
+            - name: unet-data
+              hostPath:
+                path: /var/datasets/kvc-resource-d1aac295-391e-11e8-a9b1-0a580a480d17
+  terminationPolicy:
+    chief:
+      replicaName: WORKER
+      replicaIndex: 0

@@ -1,0 +1,9 @@
+{
+  "name": "dina-unet",
+  "namespace": "dmsuehir",
+  "gceProject": "constant-cubist-173123",
+  "template_parameters": {
+    "num_ps": "1",
+    "num_workers": "2"
+  }
+}
