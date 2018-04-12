@@ -390,8 +390,10 @@ def main(_):
             # Start TensorBoard on the chief worker
             if sv.is_chief:
                 cmd = 'tensorboard --logdir={}'.format(CHECKPOINT_DIRECTORY)
+                # tf.logging.info("Start TensorBoard by running: {}".format(cmd))
                 tb_process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                              shell=True, preexec_fn=os.setsid)
+                                              shell=True,
+                                              preexec_fn=os.setsid)
 
             while (not sv.should_stop()) and (
                     step < (num_batches * FLAGS.epochs)):
@@ -527,7 +529,10 @@ def main(_):
                 export_model(sess, imgs, preds)
 
                 # Stop TensorBoard process
-                os.killpg(os.getpgid(tb_process.pid), signal.SIGTERM)
+                try:
+                    os.killpg(os.getpgid(tb_process.pid), signal.SIGTERM)
+                except NameError:
+                    pass  # tf_process probably was not started
 
             # Send a signal to the ps when done by simply updating a queue
             # in the shared graph

@@ -1,3 +1,5 @@
+import os
+
 BASE = "/home/bduser/unet/data/"
 # DATA_PATH = BASE+"/slices"
 DATA_PATH = "/tmp/data"
@@ -16,7 +18,7 @@ EPOCHS = 10
 BLOCKTIME = 0
 NUM_INTRA_THREADS = 50
 NUM_INTER_THREADS = 2
-BATCH_SIZE = 1024
+BATCH_SIZE = 128  # 1024
 
 LEARNINGRATE = 0.0005  # 0.0005
 DECAY_STEPS = 100
@@ -44,7 +46,8 @@ MODE = 1
 # ["10.100.68.193","10.100.68.183","10.100.68.185","10.100.68.187"]
 # WORKER_PORTS = ["2222", "2222", "2222", "2222"]
 
-CHECKPOINT_DIRECTORY = "/data03/checkpoints/"
+# CHECKPOINT_DIRECTORY = "s3://dmsuehir/data03/checkpoints/"
+CHECKPOINT_DIRECTORY = os.environ.get("OUTPUT_PATH", "/data03/checkpoints/")
 TENSORBOARD_IMAGES = 3  # How many images to display on TensorBoard
 
 # TensorBoard
