@@ -390,7 +390,8 @@ def main(_):
             # Start TensorBoard on the chief worker
             if sv.is_chief:
                 cmd = 'tensorboard --logdir={}'.format(CHECKPOINT_DIRECTORY)
-                # tf.logging.info("Start TensorBoard by running: {}".format(cmd))
+                # tf.logging.info("Start TensorBoard by running: "
+                #                 "{}".format(cmd))
                 tb_process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                               shell=True,
                                               preexec_fn=os.setsid)
@@ -510,9 +511,9 @@ def main(_):
                     loss_v_test += l_v / (test_length // batch_size)
 
                 tf.logging.info("\nEpoch {} of {}: Test loss = {:.4f}, "
-                                "Test Dice = {:.4f}".format(
-                    (step // num_batches), FLAGS.epochs,
-                    loss_v_test, dice_v_test))
+                                "Test Dice = {:.4f}".
+                                format((step // num_batches),
+                                       FLAGS.epochs, loss_v_test, dice_v_test))
 
                 sv.summary_computed(sess, sess.run(
                     test_loss_summary,
@@ -569,7 +570,8 @@ def export_model(sess, input_tensor, output_tensor):
     builder.save()
 
     tf.logging.info("Saved final model to directory: {}".format(MODEL_DIR))
-    tf.logging.info("You can check the model from the command line by running:")
+    tf.logging.info("You can check the model from the command line "
+                    "by running:")
     tf.logging.info("saved_model_cli show --dir {} --all".format(MODEL_DIR))
 
 

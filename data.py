@@ -3,6 +3,7 @@ import settings_dist
 import numpy as np
 import tensorflow as tf
 
+
 def load_all_data():
 
     # Load train data
@@ -50,10 +51,10 @@ def get_epoch(batch_size, imgs_train, msks_train):
     image_channels = imgs_train.shape[3]
 
     epoch_length = train_size - train_size % batch_size
-    batch_count = epoch_length/batch_size
+    batch_count = int(epoch_length/batch_size)
 
     # Shuffle and truncate arrays to equal 1 epoch
-    zipped = zip(imgs_train, msks_train)
+    zipped = list(zip(imgs_train, msks_train))
     np.random.shuffle(zipped)
     data, labels = zip(*zipped)
     data = np.asarray(data)[:epoch_length]
@@ -66,6 +67,6 @@ def get_epoch(batch_size, imgs_train, msks_train):
                              image_height, image_channels))
 
     # Join batches of training examples with batches of labels
-    epoch_of_batches = zip(data, labels)
+    epoch_of_batches = list(zip(data, labels))
 
     return np.array(epoch_of_batches)
