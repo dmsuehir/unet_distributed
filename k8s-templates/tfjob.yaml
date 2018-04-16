@@ -77,8 +77,6 @@ spec:
                     values:
                     - gke-dls-us-n1-highmem-8-c8f32d4f-l2cj
                     - gke-dls-us-n1-highmem-8-c8f32d4f-vj8b
-#                    - gke-dls-us-n1-standard-4-1ba3a893-516b
-#                    - gke-dls-us-n1-standard-4-1ba3a893-gvr1
           volumes:
             - name: unet-data
               hostPath:
